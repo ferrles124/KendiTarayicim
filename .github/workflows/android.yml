@@ -20,8 +20,8 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Eksik Gradle Dosyalarını Otomatik Üret
-      run: gradle wrapper
+    - name: Belirli ve Kararlı Gradle Sürümünü Kur
+      run: gradle wrapper --gradle-version 8.7
 
     - name: Gradle'a Çalıştırma İzni Ver
       run: chmod +x gradlew
