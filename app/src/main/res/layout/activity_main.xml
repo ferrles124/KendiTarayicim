@@ -3,22 +3,30 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F5F5F7">
+    android:background="#121212"> <ProgressBar
+        android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:visibility="gone"
+        android:progressTint="#1A73E8" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="8dp"
-        android:background="#FFFFFF"
-        android:elevation="4dp">
+        android:padding="10dp"
+        android:background="#1E1E1E"
+        android:elevation="6dp">
 
         <EditText
             android:id="@+id/url_input"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="45dp"
             android:layout_weight="1"
-            android:hint="Sözcük veya URL girin"
+            android:hint="Arayın veya URL girin..."
+            android:textColor="#FFFFFF"
+            android:textColorHint="#888888"
             android:inputType="textUri"
             android:paddingHorizontal="16dp"
             android:background="@android:drawable/editbox_background_normal"
@@ -28,16 +36,66 @@
         <Button
             android:id="@+id/btn_go"
             android:layout_width="wrap_content"
-            android:layout_height="48dp"
+            android:layout_height="45dp"
             android:layout_marginStart="8dp"
             android:text="GİT"
             android:textColor="#FFFFFF"
             android:backgroundTint="#1A73E8" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="#1E1E1E"
+        android:paddingBottom="6dp">
+
+        <Button
+            android:id="@+id/btn_back"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="◀"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2C2C2C"
+            android:layout_marginHorizontal="4dp"/>
+
+        <Button
+            android:id="@+id/btn_forward"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="▶"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2C2C2C"
+            android:layout_marginHorizontal="4dp"/>
+
+        <Button
+            android:id="@+id/btn_refresh"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="🔄"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2C2C2C"
+            android:layout_marginHorizontal="4dp"/>
+
+        <Button
+            android:id="@+id/btn_home"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="🏠"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2C2C2C"
+            android:layout_marginHorizontal="4dp"/>
+    </LinearLayout>
+
     <WebView
         android:id="@+id/web_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="#121212" />
 
 </LinearLayout>
