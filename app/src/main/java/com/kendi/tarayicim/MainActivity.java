@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private Button btnGo;
     private ProgressBar progressBar;
     
-    // Yeni Navigasyon Butonları
+    // Navigasyon Butonları
     private Button btnBack;
     private Button btnForward;
     private Button btnRefresh;
@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
                 if (newProgress == 100) {
                     progressBar.setVisibility(View.GONE);
                 } else {
-                    progressBar.setVisibility(View.getSystemUiVisibility());
+                    progressBar.setVisibility(View.VISIBLE); // Hatalı kısım sorunsuz sürümle değiştirildi
                 }
             }
         });
@@ -102,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // İleri Git Butonu
         btnForward.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -111,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Yenile Butonu
         btnRefresh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -118,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Ana Sayfa Butonu
         btnHome.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
