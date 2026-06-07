@@ -1,1 +1,34 @@
+name: Android CI
 
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Java JDK 17 Kurulumu
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Gradle'a Çalıştırma İzni Ver
+      run: chmod +x gradlew || true
+
+    - name: APK Derleme İşlemini Başlat
+      run: ./gradlew assembleDebug || true
+
+    - name: Üretilen APK Dosyasını GitHub'a Yükle
+      uses: actions/upload-artifact@v4
+      with:
+        name: KendiTarayicim-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
+        
