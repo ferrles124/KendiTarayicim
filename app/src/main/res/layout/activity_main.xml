@@ -107,7 +107,7 @@
                 android:padding="7dp"/>
         </LinearLayout>
 
-        <!-- İnce ayraç çizgisi -->
+        <!-- İnce ayraç -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -219,7 +219,6 @@
                     android:textStyle="bold"/>
             </LinearLayout>
 
-            <!-- Menü butonları -->
             <Button
                 android:id="@+id/menu_bookmarks"
                 android:layout_width="match_parent"
@@ -276,17 +275,21 @@
                 android:layout_marginBottom="8dp"
                 app:cornerRadius="10dp"/>
 
-            <!-- Versiyon bilgisi -->
+            <!-- Boşluk doldurucu -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
+
+            <!-- Versiyon -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="auto"
                 android:text="v2.0 — Aşama 1"
                 android:textColor="#333333"
                 android:textSize="11sp"
-                android:gravity="center"
-                android:layout_gravity="bottom"
-                android:layout_weight="1"/>
+                android:gravity="center"/>
+
         </LinearLayout>
     </com.google.android.material.navigation.NavigationView>
 
