@@ -1,31 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="140dp"
-    android:layout_height="40dp"
+    android:id="@+id/tab_container"
+    android:layout_width="148dp"
+    android:layout_height="38dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:paddingStart="12dp"
-    android:paddingEnd="4dp"
-    android:background="#1A1A1A"
-    android:layout_marginEnd="4dp">
+    android:paddingEnd="6dp"
+    android:layout_marginEnd="2dp"
+    android:layout_marginTop="4dp"
+    android:background="@drawable/tab_bg_inactive">
+
+    <View
+        android:id="@+id/tab_accent"
+        android:layout_width="3dp"
+        android:layout_height="16dp"
+        android:layout_marginEnd="8dp"
+        android:background="#4D9EFF"
+        android:visibility="gone"/>
 
     <TextView
         android:id="@+id/tab_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textColor="#CCCCCC"
+        android:textColor="#999999"
         android:textSize="12sp"
+        android:letterSpacing="0.01"
         android:maxLines="1"
         android:ellipsize="end" />
 
     <ImageButton
         android:id="@+id/btn_close_tab"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Sekmeyi kapat"
-        android:tint="#888888" />
-
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:src="@drawable/ic_close"
+        android:background="@drawable/nav_button_bg"
+        android:contentDescription="Kapat"
+        android:padding="5dp"/>
 </LinearLayout>
