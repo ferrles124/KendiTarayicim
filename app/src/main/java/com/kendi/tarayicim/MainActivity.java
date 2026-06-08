@@ -26,9 +26,10 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import java.io.ByteArrayInputStream;
 import java.net.URLDecoder;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -37,12 +38,13 @@ public class MainActivity extends AppCompatActivity {
     private Button btnGo;
     private ProgressBar progressBar;
     private DrawerLayout drawerLayout;
-    private ImageButton btnMenu;
-    
-    private ImageButton btnBack, btnForward, btnRefresh, btnHome;
+    private ImageButton btnMenu, btnBack, btnForward, btnRefresh, btnHome;
+    private ImageButton btnNewTab;
     private Button menuBookmarks, menuHistory, menuAdBlock, menuSettings;
+    private RecyclerView tabsRecycler;
+    private TabAdapter tabAdapter;
+    private FrameLayout webViewContainer;
 
-    // Mega Entegre Servis Katmanları
     private BrowserDatabaseHelper dbHelper;
     private AdBlockEngine adBlockEngine;
     private TabManager tabManager;
@@ -57,7 +59,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 6 Büyük Sistem Çekirdeğinin İlk Kurulumu
         dbHelper = new BrowserDatabaseHelper(this);
         adBlockEngine = new AdBlockEngine();
         tabManager = new TabManager(this);
@@ -66,25 +67,17 @@ public class MainActivity extends AppCompatActivity {
         proxyTunnel = new ProxyTunnel();
 
         initializeUiComponents();
-        
-        // Çoklu Sekme Sisteminden İlk Ana Sekmeyi İsteme
+        setupTabManager();
+        setupTabRecycler();
+
+        // İlk sekmeyi oluştur
         webView = tabManager.createNewTab();
         configureWebViewSettings(webView);
         setupBrowserClients(webView);
         setupDownloadListener(webView);
-        
-        // BEYAZ EKRAN ÇÖZÜMÜ: Dinamik yaratılan WebView'u XML'deki container'a bağlıyoruz
-        FrameLayout webViewContainer = findViewById(R.id.web_view);
-        if (webViewContainer != null) {
-            webViewContainer.removeAllViews();
-            webViewContainer.addView(webView, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-            ));
-        }
-        
-        setupClickListeners();
+        attachWebView(webView);
 
+        setupClickListeners();
         webView.loadUrl(HOME_URL);
     }
 
@@ -94,16 +87,92 @@ public class MainActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progress_bar);
         drawerLayout = findViewById(R.id.drawer_layout);
         btnMenu = findViewById(R.id.btn_menu);
-        
         btnBack = findViewById(R.id.btn_back);
         btnForward = findViewById(R.id.btn_forward);
         btnRefresh = findViewById(R.id.btn_refresh);
         btnHome = findViewById(R.id.btn_home);
-
+        btnNewTab = findViewById(R.id.btn_new_tab);
+        tabsRecycler = findViewById(R.id.tabs_recycler);
+        webViewContainer = findViewById(R.id.web_view);
         menuBookmarks = findViewById(R.id.menu_bookmarks);
         menuHistory = findViewById(R.id.menu_history);
         menuAdBlock = findViewById(R.id.menu_adblock);
         menuSettings = findViewById(R.id.menu_settings);
+    }
+
+    private void setupTabManager() {
+        tabManager.setOnTabChangeListener(new TabManager.OnTabChangeListener() {
+            @Override
+            public void onTabChanged(int index, WebView newWebView) {
+                webView = newWebView;
+                attachWebView(webView);
+                String url = webView.getUrl();
+                urlInput.setText(url != null && !url.equals(HOME_URL) ? url : "");
+                if (tabAdapter != null) tabAdapter.setSelectedIndex(index);
+            }
+
+            @Override
+            public void onTabCountChanged(int count) {
+                if (tabAdapter != null) tabAdapter.notifyDataSetChanged();
+            }
+        });
+    }
+
+    private void setupTabRecycler() {
+        LinearLayoutManager lm = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
+        tabsRecycler.setLayoutManager(lm);
+
+        tabAdapter = new TabAdapter(tabManager.getAllTabs(), 0, new TabAdapter.OnTabActionListener() {
+            @Override
+            public void onTabSelected(int index) {
+                tabManager.switchTab(index);
+            }
+
+            @Override
+            public void onTabClosed(int index) {
+                if (tabManager.getTabCount() <= 1) {
+                    // Son sekme kapatılamaz, yenile
+                    Toast.makeText(MainActivity.this, "En az bir sekme açık olmalı.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                tabManager.closeTab(index);
+                tabAdapter.notifyDataSetChanged();
+                // Aktif WebView'u güncelle
+                WebView current = tabManager.getCurrentWebView();
+                if (current != null) {
+                    webView = current;
+                    attachWebView(webView);
+                    tabAdapter.setSelectedIndex(tabManager.getCurrentTabIndex());
+                }
+            }
+        });
+
+        tabsRecycler.setAdapter(tabAdapter);
+    }
+
+    private void attachWebView(WebView wv) {
+        if (webViewContainer != null) {
+            webViewContainer.removeAllViews();
+            if (wv.getParent() != null) {
+                ((ViewGroup) wv.getParent()).removeView(wv);
+            }
+            webViewContainer.addView(wv, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+        }
+    }
+
+    private void openNewTab(String url) {
+        WebView newTab = tabManager.createNewTab();
+        configureWebViewSettings(newTab);
+        setupBrowserClients(newTab);
+        setupDownloadListener(newTab);
+        webView = newTab;
+        attachWebView(webView);
+        tabAdapter.setSelectedIndex(tabManager.getCurrentTabIndex());
+        tabAdapter.notifyDataSetChanged();
+        webView.loadUrl(url != null ? url : HOME_URL);
     }
 
     private void configureWebViewSettings(WebView web) {
@@ -115,10 +184,9 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
-        
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        
+
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(web, true);
@@ -131,12 +199,21 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setProgress(newProgress);
                 progressBar.setVisibility(newProgress == 100 ? View.GONE : View.VISIBLE);
             }
+
+            @Override
+            public void onReceivedTitle(WebView view, String title) {
+                // Sekme başlığını güncelle
+                tabManager.updateTabInfo(view.getUrl(), title);
+                tabAdapter.notifyDataSetChanged();
+            }
         });
 
         web.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
+                tabManager.updateTabInfo(url, url);
+                tabAdapter.notifyDataSetChanged();
             }
 
             @Override
@@ -150,6 +227,8 @@ public class MainActivity extends AppCompatActivity {
                     dbHelper.addHistoryItem(url, view.getTitle());
                     liveScoreEngine.stopUpdates();
                 }
+                tabManager.updateTabInfo(url, view.getTitle());
+                tabAdapter.notifyDataSetChanged();
             }
 
             @Override
@@ -172,7 +251,8 @@ public class MainActivity extends AppCompatActivity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 if (adBlockEngine.isAdRequest(url)) {
-                    return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream("".getBytes()));
+                    return new WebResourceResponse("text/plain", "UTF-8",
+                            new ByteArrayInputStream("".getBytes()));
                 }
                 return super.shouldInterceptRequest(view, request);
             }
@@ -187,19 +267,19 @@ public class MainActivity extends AppCompatActivity {
                 String cookies = CookieManager.getInstance().getCookie(url);
                 request.addRequestHeader("cookie", cookies);
                 request.addRequestHeader("User-Agent", userAgent);
-                request.setDescription("Dosya Quantum Engine ile indiriliyor...");
-                request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimetype));
+                request.setDescription("İndiriliyor...");
+                String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
+                request.setTitle(fileName);
                 request.allowScanningByMediaScanner();
                 request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimetype));
-                
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
                 DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                 if (dm != null) {
                     dm.enqueue(request);
-                    Toast.makeText(MainActivity.this, "İndirme başlatıldı.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "İndirme başlatıldı: " + fileName, Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
-                Toast.makeText(MainActivity.this, "Hata oluştu.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "İndirme hatası oluştu.", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -214,16 +294,22 @@ public class MainActivity extends AppCompatActivity {
         btnRefresh.setOnClickListener(v -> webView.reload());
         btnHome.setOnClickListener(v -> webView.loadUrl(HOME_URL));
 
+        // YENİ SEKME BUTONU
+        btnNewTab.setOnClickListener(v -> {
+            openNewTab(HOME_URL);
+            Toast.makeText(this, "Yeni sekme açıldı", Toast.LENGTH_SHORT).show();
+        });
+
         menuAdBlock.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             boolean nextState = !proxyTunnel.isTunnelActive();
             proxyTunnel.toggleSecureTunnel(webView, nextState);
-            Toast.makeText(this, nextState ? "Gizlilik Tüneli Aktif" : "Standart Bağlantı Modu", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, nextState ? "🛡 Gizlilik Tüneli Aktif" : "Standart Bağlantı Modu", Toast.LENGTH_LONG).show();
         });
 
         menuHistory.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(this, "Açık Sekme Sayısı: " + tabManager.getTabCount(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Açık Sekme: " + tabManager.getTabCount(), Toast.LENGTH_SHORT).show();
         });
 
         menuBookmarks.setOnClickListener(v -> {
@@ -231,8 +317,7 @@ public class MainActivity extends AppCompatActivity {
             String currentUrl = webView.getUrl();
             if (currentUrl != null && !currentUrl.isEmpty() && !currentUrl.equals(HOME_URL)) {
                 dbHelper.addBookmark(currentUrl, webView.getTitle());
-                passwordVault.saveCredential(currentUrl, "Kullanici", "GuvenliSifre123");
-                Toast.makeText(this, "Veriler Güvenli Kasaya İşlendi.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "⭐ Yer imine eklendi!", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "Ana sayfa yer imlerine eklenemez.", Toast.LENGTH_SHORT).show();
             }
@@ -243,10 +328,11 @@ public class MainActivity extends AppCompatActivity {
             String currentAgent = webView.getSettings().getUserAgentString();
             if (currentAgent != null && currentAgent.contains("Desktop")) {
                 webView.getSettings().setUserAgentString(null);
-                Toast.makeText(this, "Mobil Moduna Geçildi", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "📱 Mobil Mod Aktif", Toast.LENGTH_SHORT).show();
             } else {
-                webView.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                Toast.makeText(this, "Masaüstü Modu Aktif", Toast.LENGTH_SHORT).show();
+                webView.getSettings().setUserAgentString(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                Toast.makeText(this, "🖥 Masaüstü Modu Aktif", Toast.LENGTH_SHORT).show();
             }
             webView.reload();
         });
@@ -289,5 +375,5 @@ public class MainActivity extends AppCompatActivity {
         } else {
             super.onBackPressed();
         }
-    } 
+    }
 }
