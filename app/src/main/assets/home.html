@@ -3,59 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Quantum Start</title>
+    <title>Ana Sayfa</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-        body {
-            background: linear-gradient(to bottom, rgba(18, 32, 43, 0.8), rgba(18, 18, 18, 0.95)), 
-                              url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop');
-            background-size: cover; background-position: center; background-attachment: fixed; color: #ffffff;
-            min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 20px 20px;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        :root {
+            --bg: #0D0D0D;
+            --surface: #161616;
+            --surface2: #1E1E1E;
+            --border: #252525;
+            --accent: #4D9EFF;
+            --text: #F0F0F0;
+            --text-muted: #555;
+            --text-dim: #888;
         }
-        .brand-header { text-align: center; margin-bottom: 30px; opacity: 0.9; }
-        .brand-logo { font-size: 28px; font-weight: 700; letter-spacing: 2px; background: linear-gradient(45deg, #1a73e8, #66bb6a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; }
-        .search-container { width: 100%; max-width: 500px; margin-bottom: 40px; }
-        .search-box { width: 100%; height: 52px; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 26px; padding: 0 24px; color: #ffffff; font-size: 16px; outline: none; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .search-box:focus { background: rgba(255, 255, 255, 0.18); border-color: rgba(26, 115, 232, 0.6); box-shadow: 0 6px 20px rgba(26, 115, 232, 0.2); }
-        .grid-container { width: 100%; max-width: 480px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px 16px; margin-bottom: 40px; }
-        .grid-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #ffffff; }
-        .icon-wrapper { width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.95); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 8px; }
-        .icon-wrapper img { width: 28px; height: 28px; object-fit: contain; }
-        .grid-label { font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.85); text-align: center; }
-        .widget-panel { width: 100%; max-width: 500px; background: rgba(30, 30, 30, 0.65); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); margin-top: auto; }
-        .widget-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: #1a73e8; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 6px; }
-        .match-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
-        .team-info { display: flex; flex-direction: column; gap: 4px; }
-        .score-display { text-align: right; font-weight: 700; color: #66bb6a; font-family: monospace; font-size: 16px; }
-        .match-status { font-size: 11px; color: rgba(255, 255, 255, 0.4); text-align: right; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 20px 32px;
+            overflow-x: hidden;
+        }
+
+        /* SAAT */
+        .clock-section { width: 100%; text-align: center; padding: 48px 0 32px; animation: fadeUp 0.4s ease both; }
+        .clock { font-size: 64px; font-weight: 300; letter-spacing: -2px; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+        .clock span { color: var(--accent); animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+        .date { font-size: 14px; color: var(--text-dim); margin-top: 8px; letter-spacing: 0.5px; }
+
+        /* ARAMA */
+        .search-section { width: 100%; max-width: 480px; margin-bottom: 36px; animation: fadeUp 0.4s 0.08s ease both; }
+        .search-wrap { position: relative; display: flex; align-items: center; }
+        .search-icon { position: absolute; left: 16px; width: 18px; height: 18px; opacity: 0.4; pointer-events: none; }
+        .search-input {
+            width: 100%; height: 52px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 0 52px 0 48px; color: var(--text); font-size: 15px; font-family: inherit;
+            outline: none; transition: border-color 0.2s, box-shadow 0.2s; caret-color: var(--accent);
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(77,158,255,0.1); }
+        .search-btn {
+            position: absolute; right: 8px; width: 36px; height: 36px;
+            background: var(--accent); border: none; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.15s;
+        }
+        .search-btn:active { opacity: 0.8; }
+        .search-btn svg { width: 16px; height: 16px; stroke: #fff; fill: none; }
+
+        /* KISAYOLLAR */
+        .shortcuts-section { width: 100%; max-width: 480px; margin-bottom: 32px; animation: fadeUp 0.4s 0.16s ease both; }
+        .section-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+        .shortcuts-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .shortcut {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            text-decoration: none; padding: 14px 8px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .shortcut:active { transform: scale(0.95); background: var(--surface2); }
+        .shortcut-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: var(--surface2); display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .shortcut-icon img { width: 24px; height: 24px; object-fit: contain; }
+        .shortcut-label { font-size: 11px; color: var(--text-dim); font-weight: 500; text-align: center; }
+
+        /* ÖNERİLER */
+        .suggestions-section { width: 100%; max-width: 480px; margin-bottom: 32px; animation: fadeUp 0.4s 0.24s ease both; }
+        .suggestion-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            text-decoration: none; margin-bottom: 8px; transition: background 0.15s, transform 0.1s;
+        }
+        .suggestion-row:active { transform: scale(0.98); background: var(--surface2); }
+        .suggestion-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .suggestion-name { font-size: 14px; color: var(--text); font-weight: 500; }
+        .suggestion-url { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .suggestion-arrow { opacity: 0.2; font-size: 16px; color: var(--text); }
+
+        /* GİZLİLİK ROZET */
+        .privacy-badge {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px;
+            background: rgba(77,158,255,0.06); border: 1px solid rgba(77,158,255,0.15); border-radius: 10px;
+            margin-top: auto; animation: fadeUp 0.4s 0.32s ease both;
+        }
+        .privacy-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+        .privacy-text { font-size: 12px; color: var(--accent); font-weight: 500; }
+
+        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
     </style>
 </head>
 <body>
-    <div class="brand-header"><div class="brand-logo">Quantum</div></div>
-    <div class="search-container">
-        <input type="text" class="search-box" id="searchIn" placeholder="Arayın veya URL girin..." onkeydown="if(event.key === 'Enter') executeSearch()">
+
+    <div class="clock-section">
+        <div class="clock" id="clock">00<span>:</span>00</div>
+        <div class="date" id="date"></div>
     </div>
-    <div class="grid-container">
-        <a class="grid-item" href="https://www.google.com"><div class="icon-wrapper"><img src="https://www.google.com/favicon.ico"></div><div class="grid-label">Google</div></a>
-        <a class="grid-item" href="https://www.youtube.com"><div class="icon-wrapper"><img src="https://www.youtube.com/favicon.ico"></div><div class="grid-label">YouTube</div></a>
-        <a class="grid-item" href="https://www.instagram.com"><div class="icon-wrapper"><img src="https://www.instagram.com/favicon.ico"></div><div class="grid-label">Instagram</div></a>
-        <a class="grid-item" href="https://www.amazon.com.tr"><div class="icon-wrapper"><img src="https://www.amazon.com/favicon.ico"></div><div class="grid-label">Amazon</div></a>
-    </div>
-    <div class="widget-panel">
-        <div class="widget-header"><span>Canlı Puanlar</span><span>Maç Merkezi</span></div>
-        <div class="match-row">
-            <div class="team-info"><div style="color: #ffcc00;">Galatasaray</div><div style="color: #0066cc;">Fenerbahçe</div></div>
-            <div>
-                <div class="score-display"><span id="gs-score">0</span> - <span id="fb-score">0</span></div>
-                <div class="match-status" id="match-status">Bağlanıyor...</div>
-            </div>
+
+    <div class="search-section">
+        <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input class="search-input" id="searchInput" type="text"
+                placeholder="Ara veya adres gir..."
+                autocomplete="off" autocorrect="off" spellcheck="false"
+                onkeydown="if(event.key==='Enter') search()">
+            <button class="search-btn" onclick="search()">
+                <svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
         </div>
     </div>
+
+    <div class="shortcuts-section">
+        <div class="section-label">Hızlı Erişim</div>
+        <div class="shortcuts-grid">
+            <a class="shortcut" href="https://www.google.com">
+                <div class="shortcut-icon"><img src="https://www.google.com/favicon.ico"></div>
+                <span class="shortcut-label">Google</span>
+            </a>
+            <a class="shortcut" href="https://www.youtube.com">
+                <div class="shortcut-icon"><img src="https://www.youtube.com/favicon.ico"></div>
+                <span class="shortcut-label">YouTube</span>
+            </a>
+            <a class="shortcut" href="https://www.instagram.com">
+                <div class="shortcut-icon"><img src="https://www.instagram.com/favicon.ico"></div>
+                <span class="shortcut-label">Instagram</span>
+            </a>
+            <a class="shortcut" href="https://twitter.com">
+                <div class="shortcut-icon"><img src="https://twitter.com/favicon.ico"></div>
+                <span class="shortcut-label">Twitter</span>
+            </a>
+            <a class="shortcut" href="https://www.amazon.com.tr">
+                <div class="shortcut-icon"><img src="https://www.amazon.com/favicon.ico"></div>
+                <span class="shortcut-label">Amazon</span>
+            </a>
+            <a class="shortcut" href="https://www.hepsiburada.com">
+                <div class="shortcut-icon"><img src="https://www.hepsiburada.com/favicon.ico"></div>
+                <span class="shortcut-label">Hepsiburada</span>
+            </a>
+            <a class="shortcut" href="https://www.trendyol.com">
+                <div class="shortcut-icon"><img src="https://www.trendyol.com/favicon.ico"></div>
+                <span class="shortcut-label">Trendyol</span>
+            </a>
+            <a class="shortcut" href="https://eksisozluk.com">
+                <div class="shortcut-icon"><img src="https://eksisozluk.com/favicon.ico"></div>
+                <span class="shortcut-label">Ekşi</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="suggestions-section">
+        <div class="section-label">Keşfet</div>
+        <a class="suggestion-row" href="https://news.google.com/topstories?hl=tr&gl=TR">
+            <div class="suggestion-dot" style="background:#FF6B6B"></div>
+            <div style="flex:1">
+                <div class="suggestion-name">Gündem Haberleri</div>
+                <div class="suggestion-url">news.google.com</div>
+            </div>
+            <div class="suggestion-arrow">›</div>
+        </a>
+        <a class="suggestion-row" href="https://www.ntv.com.tr">
+            <div class="suggestion-dot" style="background:#FFB347"></div>
+            <div style="flex:1">
+                <div class="suggestion-name">NTV</div>
+                <div class="suggestion-url">ntv.com.tr</div>
+            </div>
+            <div class="suggestion-arrow">›</div>
+        </a>
+        <a class="suggestion-row" href="https://www.mackolik.com">
+            <div class="suggestion-dot" style="background:#4D9EFF"></div>
+            <div style="flex:1">
+                <div class="suggestion-name">Maçkolik — Canlı Skorlar</div>
+                <div class="suggestion-url">mackolik.com</div>
+            </div>
+            <div class="suggestion-arrow">›</div>
+        </a>
+        <a class="suggestion-row" href="https://www.github.com">
+            <div class="suggestion-dot" style="background:#A78BFA"></div>
+            <div style="flex:1">
+                <div class="suggestion-name">GitHub</div>
+                <div class="suggestion-url">github.com</div>
+            </div>
+            <div class="suggestion-arrow">›</div>
+        </a>
+    </div>
+
+    <div class="privacy-badge">
+        <div class="privacy-dot"></div>
+        <span class="privacy-text">Reklam engelleme aktif — Korumalı bağlantı</span>
+    </div>
+
     <script>
-        function executeSearch() {
-            var query = document.getElementById('searchIn').value.trim();
-            if (query !== "") { window.location.href = "search://" + encodeURIComponent(query); }
+        function updateClock() {
+            var now = new Date();
+            var h = String(now.getHours()).padStart(2,'0');
+            var m = String(now.getMinutes()).padStart(2,'0');
+            document.getElementById('clock').innerHTML = h + '<span>:</span>' + m;
+            var days = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+            var months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+            document.getElementById('date').textContent =
+                days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
         }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        function search() {
+            var q = document.getElementById('searchInput').value.trim();
+            if (!q) return;
+            window.location.href = 'search://' + encodeURIComponent(q);
+        }
+
+        setTimeout(function() { document.getElementById('searchInput').focus(); }, 300);
     </script>
 </body>
 </html>
