@@ -25,11 +25,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import java.io.ByteArrayInputStream;
+import java.net.URLDecoder;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    // Çekirdek Bileşenler
     private WebView webView;
     private EditText urlInput;
     private Button btnGo;
@@ -37,43 +37,29 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private ImageButton btnMenu;
     
-    // Alt Navigasyon Kontrolleri
     private ImageButton btnBack, btnForward, btnRefresh, btnHome;
-    
-    // Yan Menü Kontrolleri
     private Button menuBookmarks, menuHistory, menuAdBlock, menuSettings;
 
-    // Mimari Servis Katmanları
     private BrowserDatabaseHelper dbHelper;
     private AdBlockEngine adBlockEngine;
 
-    private static final String HOME_URL = "https://www.google.com";
+    // Varsayılan Adres Yerel V3 Ana Sayfamız Olarak Ayarlandı
+    private static final String HOME_URL = "file:///android_asset/home.html";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Modüllerin Başlatılması
         dbHelper = new BrowserDatabaseHelper(this);
         adBlockEngine = new AdBlockEngine();
 
-        // UI Elementlerinin Entegrasyonu
         initializeUiComponents();
-
-        // WebView ve Motor Ayarlarının Yapılandırılması
         configureWebViewSettings();
-
-        // Tarayıcı Olay İstemcilerinin Bağlanması
         setupBrowserClients();
-
-        // İndirme Yöneticisinin Yapılandırılması
         setupDownloadListener();
-
-        // Buton Tıklama ve Tetikleyicilerin Atanması
         setupClickListeners();
 
-        // İlk Açılış Sayfasının Yüklenmesi
         webView.loadUrl(HOME_URL);
     }
 
@@ -98,19 +84,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void configureWebViewSettings() {
         WebSettings settings = webView.getSettings();
-        
-        // Performans ve Uyumluluk Ayarları
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setDatabaseEnabled(true);
-        
-        // Veri ve Önbellek Optimizasyonu
+        settings.setAllowFileAccess(true); // Yerel dosya erişimi aktif edildi
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setGeolocationEnabled(true);
         
-        // Çerez Güvenlik Yönetimi
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -134,17 +115,37 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
-                urlInput.setText(url);
                 
-                // Güvenli ve Modüler Kayıt Yapısı
-                dbHelper.addHistoryItem(url, view.getTitle());
+                // Eğer ana sayfadaysak üst barı temiz tut, değilse URL'i yaz
+                if (url.equals(HOME_URL)) {
+                    urlInput.setText("");
+                } else {
+                    urlInput.setText(url);
+                    dbHelper.addHistoryItem(url, view.getTitle());
+                }
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                
+                // Yerel ana sayfadaki arama tetikleyicisini yakala ve Google'a aktar
+                if (url.startsWith("search://")) {
+                    try {
+                        String query = url.substring(9);
+                        query = URLDecoder.decode(query, "UTF-8");
+                        view.loadUrl("https://www.google.com/search?q=" + query);
+                    } catch (Exception e) {
+                        // Çözümleme hatası koruması
+                    }
+                    return true;
+                }
+                return false;
             }
 
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                
-                // Bağımsız AdBlock Motorundan Geçiş Sorgusu
                 if (adBlockEngine.isAdRequest(url)) {
                     return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream("".getBytes()));
                 }
@@ -158,11 +159,9 @@ public class MainActivity extends AppCompatActivity {
             try {
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                 request.setMimeType(mimetype);
-                
                 String cookies = CookieManager.getInstance().getCookie(url);
                 request.addRequestHeader("cookie", cookies);
                 request.addRequestHeader("User-Agent", userAgent);
-                
                 request.setDescription("Dosya indiriliyor...");
                 request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimetype));
                 request.allowScanningByMediaScanner();
@@ -181,7 +180,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
-        // Git Butonu ve Klavye Gizleme Mantığı
         btnGo.setOnClickListener(v -> {
             loadWebPage();
             hideKeyboard();
@@ -193,14 +191,12 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
 
-        // Üst ve Alt Navigasyon Tetikleyicileri
         btnMenu.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         btnBack.setOnClickListener(v -> { if (webView.canGoBack()) webView.goBack(); });
         btnForward.setOnClickListener(v -> { if (webView.canGoForward()) webView.goForward(); });
         btnRefresh.setOnClickListener(v -> webView.reload());
         btnHome.setOnClickListener(v -> webView.loadUrl(HOME_URL));
 
-        // Yan Menü Modüler Kontrolleri
         menuAdBlock.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             Toast.makeText(this, "AdBlocker Motoru Aktif: Koruma Sağlanıyor.", Toast.LENGTH_LONG).show();
@@ -219,13 +215,15 @@ public class MainActivity extends AppCompatActivity {
         menuBookmarks.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             String currentUrl = webView.getUrl();
-            if (currentUrl != null && !currentUrl.isEmpty()) {
+            if (currentUrl != null && !currentUrl.isEmpty() && !currentUrl.equals(HOME_URL)) {
                 boolean isAdded = dbHelper.addBookmark(currentUrl, webView.getTitle());
                 if (isAdded) {
                     Toast.makeText(this, "Koleksiyona başarıyla eklendi.", Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(this, "Bu sayfa zaten yer imlerinde mevcut.", Toast.LENGTH_SHORT).show();
                 }
+            } else {
+                Toast.makeText(this, "Ana sayfa yer imlerine eklenemez.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -264,6 +262,7 @@ public class MainActivity extends AppCompatActivity {
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START);
         } else if (webView.canGoBack()) {
+            // Eğer geri gidildiğinde ana sayfaya dönüyorsa arama çubuğunu temizle
             webView.goBack();
         } else {
             super.onBackPressed();
