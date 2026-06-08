@@ -11,15 +11,7 @@ import java.util.List;
 public class BrowserDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DB_NAME = "quantum_browser_pro.db";
-    private static final int DB_VERSION = 3;
-
-    // Tablo ve Sütun İsimleri (Sabit Tanımlamalar)
-    private static final String TABLE_HISTORY = "history";
-    private static final String TABLE_BOOKMARKS = "bookmarks";
-    private static final String COLUMN_ID = "id";
-    private static final String COLUMN_URL = "url";
-    private static final String COLUMN_TITLE = "title";
-    private static final String COLUMN_TIMESTAMP = "timestamp";
+    private static final int DB_VERSION = 4; // Versiyon 6 yeni özellik için yükseltildi
 
     public BrowserDatabaseHelper(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
@@ -27,66 +19,33 @@ public class BrowserDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Geçmiş tablosu tasarımı (Zaman damgası entegreli)
-        String createHistoryTable = "CREATE TABLE " + TABLE_HISTORY + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-                + COLUMN_URL + " TEXT, "
-                + COLUMN_TITLE + " TEXT, "
-                + COLUMN_TIMESTAMP + " DATETIME DEFAULT CURRENT_TIMESTAMP)";
-        
-        // Yer imleri tablosu tasarımı
-        String createBookmarksTable = "CREATE TABLE " + TABLE_BOOKMARKS + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-                + COLUMN_URL + " TEXT UNIQUE, " // Aynı site iki kez eklenemesin
-                + COLUMN_TITLE + " TEXT)";
-
-        db.execSQL(createHistoryTable);
-        db.execSQL(createBookmarksTable);
+        db.execSQL("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, title TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
+        db.execSQL("CREATE TABLE bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT UNIQUE, title TEXT)");
+        // Kasa (Vault) tablosu eklendi
+        db.execSQL("CREATE TABLE vault (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT UNIQUE, username TEXT, password TEXT)");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_HISTORY);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKMARKS);
+        db.execSQL("DROP TABLE IF EXISTS history");
+        db.execSQL("DROP TABLE IF EXISTS bookmarks");
+        db.execSQL("DROP TABLE IF EXISTS vault");
         onCreate(db);
     }
 
-    // --- GEÇMİŞ MODÜLÜ METOTLARI ---
-
     public void addHistoryItem(String url, String title) {
         SQLiteDatabase db = this.getWritableDatabase();
-        db.beginTransaction();
-        try {
-            // Mükerrer kayıt kontrolü: Son eklenen kayıt aynı URL ise tekrar ekleme
-            String lastUrl = getLastHistoryUrl(db);
-            if (lastUrl == null || !lastUrl.equals(url)) {
-                ContentValues values = new ContentValues();
-                values.put(COLUMN_URL, url);
-                values.put(COLUMN_TITLE, title != null ? title : url);
-                db.insert(TABLE_HISTORY, null, values);
-            }
-            db.setTransactionSuccessful();
-        } finally {
-            db.endTransaction();
-            db.close();
-        }
-    }
-
-    private String getLastHistoryUrl(SQLiteDatabase db) {
-        String url = null;
-        Cursor cursor = db.rawQuery("SELECT " + COLUMN_URL + " FROM " + TABLE_HISTORY + " ORDER BY " + COLUMN_ID + " DESC LIMIT 1", null);
-        if (cursor.moveToFirst()) {
-            url = cursor.getString(0);
-        }
-        cursor.close();
-        return url;
+        ContentValues values = new ContentValues();
+        values.put("url", url);
+        values.put("title", title != null ? title : url);
+        db.insert("history", null, values);
+        db.close();
     }
 
     public List<String> getHistoryList() {
         List<String> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT " + COLUMN_URL + " FROM " + TABLE_HISTORY + " ORDER BY " + COLUMN_ID + " DESC", null);
-        
+        Cursor cursor = db.rawQuery("SELECT url FROM history ORDER BY id DESC", null);
         if (cursor.moveToFirst()) {
             do {
                 list.add(cursor.getString(0));
@@ -97,16 +56,12 @@ public class BrowserDatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    // --- YER İMLERİ MODÜLÜ METOTLARI ---
-
     public boolean addBookmark(String url, String title) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put(COLUMN_URL, url);
-        values.put(COLUMN_TITLE, title != null ? title : url);
-        
-        // INSERT OR IGNORE mantığıyla çalışır, hata kodu yerine -1 döner
-        long result = db.insertWithOnConflict(TABLE_BOOKMARKS, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+        values.put("url", url);
+        values.put("title", title != null ? title : url);
+        long result = db.insertWithOnConflict("bookmarks", null, values, SQLiteDatabase.CONFLICT_IGNORE);
         db.close();
         return result != -1;
     }
