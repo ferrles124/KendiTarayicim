@@ -11,6 +11,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- Yükleme çubuğu -->
         <ProgressBar
             android:id="@+id/progress_bar"
             style="?android:attr/progressBarStyleHorizontal"
@@ -19,9 +20,35 @@
             android:visibility="gone"
             android:progressTint="#1A73E8" />
 
+        <!-- Sekme Şeridi -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:background="#111111"
+            android:gravity="center_vertical">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/tabs_recycler"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:paddingStart="8dp" />
+
+            <ImageButton
+                android:id="@+id/btn_new_tab"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@android:drawable/ic_input_add"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Yeni sekme"
+                android:tint="#1A73E8" />
+        </LinearLayout>
+
+        <!-- URL Çubuğu -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
             android:orientation="horizontal"
             android:paddingHorizontal="12dp"
             android:background="#1E1E1E"
@@ -37,7 +64,7 @@
 
             <LinearLayout
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
                 android:layout_marginHorizontal="10dp"
                 android:background="@drawable/search_bar_bg"
@@ -67,7 +94,7 @@
             <Button
                 android:id="@+id/btn_go"
                 android:layout_width="60dp"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:text="GİT"
                 android:textColor="#FFFFFF"
                 android:textSize="12sp"
@@ -76,13 +103,15 @@
                 app:cornerRadius="18dp"/>
         </LinearLayout>
 
-        <WebView
+        <!-- WebView Alanı -->
+        <FrameLayout
             android:id="@+id/web_view"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:background="#121212" />
 
+        <!-- Alt Navigasyon -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
@@ -97,6 +126,7 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Yan Menü -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navigation_view"
         android:layout_width="280dp"
@@ -113,17 +143,17 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Quantum Browser"
+                android:text="KendiTarayicim"
                 android:textColor="#1A73E8"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="30dp"
                 android:paddingTop="20dp"/>
 
-            <Button android:id="@+id/menu_bookmarks" android:layout_width="match_parent" android:layout_height="48dp" android:text="Yer İmleri" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
-            <Button android:id="@+id/menu_history" android:layout_width="match_parent" android:layout_height="48dp" android:text="Geçmiş Listesi" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
-            <Button android:id="@+id/menu_adblock" android:layout_width="match_parent" android:layout_height="48dp" android:text="AdBlocker (Korumalı)" android:textColor="#66BB6A" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
-            <Button android:id="@+id/menu_settings" android:layout_width="match_parent" android:layout_height="48dp" android:text="Ayarlar" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
+            <Button android:id="@+id/menu_bookmarks" android:layout_width="match_parent" android:layout_height="48dp" android:text="⭐  Yer İmleri" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
+            <Button android:id="@+id/menu_history" android:layout_width="match_parent" android:layout_height="48dp" android:text="🕐  Geçmiş" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
+            <Button android:id="@+id/menu_adblock" android:layout_width="match_parent" android:layout_height="48dp" android:text="🛡  Reklam Engel" android:textColor="#66BB6A" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
+            <Button android:id="@+id/menu_settings" android:layout_width="match_parent" android:layout_height="48dp" android:text="⚙  Ayarlar" android:textColor="#DDDDDD" android:backgroundTint="#262626" android:gravity="start|center_vertical" android:paddingStart="16dp" android:layout_marginBottom="10dp" app:cornerRadius="8dp"/>
         </LinearLayout>
     </com.google.android.material.navigation.NavigationView>
 
