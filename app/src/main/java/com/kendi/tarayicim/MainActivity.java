@@ -1,12 +1,17 @@
 package com.kendi.tarayicim;
 
+import android.app.DownloadManager;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -38,9 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private Button menuBookmarks, menuHistory, menuAdBlock, menuSettings;
 
     private final String HOME_URL = "https://www.google.com";
-    private HistoryDatabaseHelper dbHelper;
+    private BrowserDatabaseHelper dbHelper;
     
-    // Temel Reklam Engelleme Karalistesi
     private final String[] AD_HOSTS = {
         "doubleclick.net", "googleads.g.doubleclick.net", "googlesyndication.com",
         "adservice.google.com", "adnxs.com", "adform.net", "analytics.google.com"
@@ -51,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        dbHelper = new HistoryDatabaseHelper(this);
+        dbHelper = new BrowserDatabaseHelper(this);
 
         // UI Bağlantıları
         webView = findViewById(R.id.web_view);
@@ -96,21 +100,42 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 urlInput.setText(url);
-                // Gelişmiş Sistem: Girilen her siteyi otomatik veritabanı geçmişine kaydet
                 dbHelper.addHistoryItem(url);
             }
 
-            // ENTEGRE ADBLOCKER MOTORU
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 for (String adHost : AD_HOSTS) {
                     if (url.contains(adHost)) {
-                        // Reklam isteği yakalandı, içi boş bir cevap dönerek reklamı engelle
                         return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream("".getBytes()));
                     }
                 }
                 return super.shouldInterceptRequest(view, request);
+            }
+        });
+
+        // ENTEGRE İNDİRME YÖNETİCİSİ MOTORU
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            try {
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setMimeType(mimetype);
+                String cookies = CookieManager.getInstance().getCookie(url);
+                request.addRequestHeader("cookie", cookies);
+                request.addRequestHeader("User-Agent", userAgent);
+                request.setDescription("Dosya indiriliyor...");
+                request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimetype));
+                request.allowScanningByMediaScanner();
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimetype));
+                
+                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                if (dm != null) {
+                    dm.enqueue(request);
+                    Toast.makeText(MainActivity.this, "İndirme işlemi başlatıldı. Bildirim panelini kontrol edin.", Toast.LENGTH_LONG).show();
+                }
+            } catch (Exception e) {
+                Toast.makeText(MainActivity.this, "İndirme başlatılamadı.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -136,13 +161,20 @@ public class MainActivity extends AppCompatActivity {
             if (history.isEmpty()) {
                 Toast.makeText(this, "Geçmiş temiz.", Toast.LENGTH_SHORT).show();
             } else {
-                // Hızlı gösterim için son girilen siteyi gösterelim
                 Toast.makeText(this, "Son Girilen: " + history.get(0), Toast.LENGTH_LONG).show();
             }
         });
 
-        menuBookmarks.setOnClickListener(v -> Toast.makeText(this, "Yer İmleri Yakında", Toast.LENGTH_SHORT).show());
-        menuSettings.setOnClickListener(v -> Toast.makeText(this, "Ayarlar Yakında", Toast.LENGTH_SHORT).show());
+        menuBookmarks.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            String currentUrl = webView.getUrl();
+            if (currentUrl != null && !currentUrl.isEmpty()) {
+                dbHelper.addBookmark(currentUrl);
+                Toast.makeText(this, "Sayfa yer imlerine eklendi.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        menuSettings.setOnClickListener(v -> Toast.makeText(this, "Gelişmiş Ayarlar Paneli", Toast.LENGTH_SHORT).show());
     }
 
     private void loadWebPage() {
@@ -170,23 +202,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // SQLite Veritabanı Sınıfı - Geçmiş verilerini saklar
-    private static class HistoryDatabaseHelper extends SQLiteOpenHelper {
-        private static final String DB_NAME = "browser_history.db";
-        private static final int DB_VERSION = 1;
+    // Gelişmiş SQLite Veritabanı Sınıfı - Tüm veri kaydını tek başına üstlenir
+    private static class BrowserDatabaseHelper extends SQLiteOpenHelper {
+        private static final String DB_NAME = "quantum_browser.db";
+        private static final int DB_VERSION = 2;
 
-        public HistoryDatabaseHelper(android.content.Context context) {
+        public BrowserDatabaseHelper(android.content.Context context) {
             super(context, DB_NAME, null, DB_VERSION);
         }
 
         @Override
         public void onCreate(SQLiteDatabase db) {
             db.execSQL("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT)");
+            db.execSQL("CREATE TABLE bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT)");
         }
 
         @Override
         public void upgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
             db.execSQL("DROP TABLE IF EXISTS history");
+            db.execSQL("DROP TABLE IF EXISTS bookmarks");
             onCreate(db);
         }
 
@@ -210,6 +244,14 @@ public class MainActivity extends AppCompatActivity {
             cursor.close();
             db.close();
             return list;
+        }
+
+        public void addBookmark(String url) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("url", url);
+            db.insert("bookmarks", null, values);
+            db.close();
         }
     }
 }
