@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private EditText urlInput;
-    private Button btnGo;
+    private ImageButton btnGo;
     private ProgressBar progressBar;
     private DrawerLayout drawerLayout;
     private ImageButton btnMenu, btnBack, btnForward, btnRefresh, btnHome;
