@@ -1,19 +1,29 @@
 package com.kendi.tarayicim;
 
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -22,31 +32,28 @@ public class MainActivity extends AppCompatActivity {
     private Button btnGo;
     private ProgressBar progressBar;
     private DrawerLayout drawerLayout;
-    private Button btnMenu;
+    private ImageButton btnMenu;
     
-    // Alt Bar Navigasyon Butonları
-    private Button btnBack;
-    private Button btnForward;
-    private Button btnRefresh;
-    private Button btnHome;
-
-    // Yan Menü Butonları
-    private Button menuBookmarks;
-    private Button menuHistory;
-    private Button menuDownloads;
-    private Button menuAdBlock;
-    private Button menuVpn;
-    private Button menuSync;
-    private Button menuSettings;
+    private ImageButton btnBack, btnForward, btnRefresh, btnHome;
+    private Button menuBookmarks, menuHistory, menuAdBlock, menuSettings;
 
     private final String HOME_URL = "https://www.google.com";
+    private HistoryDatabaseHelper dbHelper;
+    
+    // Temel Reklam Engelleme Karalistesi
+    private final String[] AD_HOSTS = {
+        "doubleclick.net", "googleads.g.doubleclick.net", "googlesyndication.com",
+        "adservice.google.com", "adnxs.com", "adform.net", "analytics.google.com"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Bileşenleri Bağlama
+        dbHelper = new HistoryDatabaseHelper(this);
+
+        // UI Bağlantıları
         webView = findViewById(R.id.web_view);
         urlInput = findViewById(R.id.url_input);
         btnGo = findViewById(R.id.btn_go);
@@ -61,98 +68,81 @@ public class MainActivity extends AppCompatActivity {
 
         menuBookmarks = findViewById(R.id.menu_bookmarks);
         menuHistory = findViewById(R.id.menu_history);
-        menuDownloads = findViewById(R.id.menu_downloads);
         menuAdBlock = findViewById(R.id.menu_adblock);
-        menuVpn = findViewById(R.id.menu_vpn);
-        menuSync = findViewById(R.id.menu_sync);
         menuSettings = findViewById(R.id.menu_settings);
 
-        // Gelişmiş Tarayıcı Ayarları
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setUseWideViewPort(true);
-        webSettings.setDatabaseEnabled(true);
+        // Gelişmiş Web Tarayıcı Yapılandırması
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
 
-        // Sayfa Yüklenme Durumu İzleyici
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
-                super.onProgressChanged(view, newProgress);
                 progressBar.setProgress(newProgress);
-                if (newProgress == 100) {
-                    progressBar.setVisibility(View.GONE);
-                } else {
-                    progressBar.setVisibility(View.VISIBLE);
-                }
+                progressBar.setVisibility(newProgress == 100 ? View.GONE : View.VISIBLE);
             }
         });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                super.onPageStarted(view, url, favicon);
                 progressBar.setVisibility(View.VISIBLE);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
                 urlInput.setText(url);
+                // Gelişmiş Sistem: Girilen her siteyi otomatik veritabanı geçmişine kaydet
+                dbHelper.addHistoryItem(url);
+            }
+
+            // ENTEGRE ADBLOCKER MOTORU
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                for (String adHost : AD_HOSTS) {
+                    if (url.contains(adHost)) {
+                        // Reklam isteği yakalandı, içi boş bir cevap dönerek reklamı engelle
+                        return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream("".getBytes()));
+                    }
+                }
+                return super.shouldInterceptRequest(view, request);
             }
         });
 
         webView.loadUrl(HOME_URL);
 
-        // Tetikleyiciler
+        // Olay Tetikleyicileri
         btnGo.setOnClickListener(v -> loadWebPage());
-        
-        // Yan Menüyü Açma Butonu
         btnMenu.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
-
-        // Alt Navigasyon Fonksiyonları
         btnBack.setOnClickListener(v -> { if (webView.canGoBack()) webView.goBack(); });
         btnForward.setOnClickListener(v -> { if (webView.canGoForward()) webView.goForward(); });
         btnRefresh.setOnClickListener(v -> webView.reload());
         btnHome.setOnClickListener(v -> webView.loadUrl(HOME_URL));
 
-        // GELİŞMİŞ MENÜ MODÜLLERİ ALTYAPISI
-        menuBookmarks.setOnClickListener(v -> {
+        // Entegre Modül Tetikleyicileri
+        menuAdBlock.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "Yer İmleri Modülü Hazırlanıyor...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "AdBlocker Aktif: Reklam sunucuları engelleniyor.", Toast.LENGTH_LONG).show();
         });
 
         menuHistory.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "Geçmiş Veritabanı Modülü Hazırlanıyor...", Toast.LENGTH_SHORT).show();
+            List<String> history = dbHelper.getHistory();
+            if (history.isEmpty()) {
+                Toast.makeText(this, "Geçmiş temiz.", Toast.LENGTH_SHORT).show();
+            } else {
+                // Hızlı gösterim için son girilen siteyi gösterelim
+                Toast.makeText(this, "Son Girilen: " + history.get(0), Toast.LENGTH_LONG).show();
+            }
         });
 
-        menuDownloads.setOnClickListener(v -> {
-            drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "İndirme Yöneticisi Başlatılıyor...", Toast.LENGTH_SHORT).show();
-        });
-
-        menuAdBlock.setOnClickListener(v -> {
-            drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "AdBlock Filtreleri Güncelleniyor...", Toast.LENGTH_SHORT).show();
-        });
-
-        menuVpn.setOnClickListener(v -> {
-            drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "Güvenli VPN Tüneli Aranıyor...", Toast.LENGTH_SHORT).show();
-        });
-
-        menuSync.setOnClickListener(v -> {
-            drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "Bulut Yedekleme Başlatılıyor...", Toast.LENGTH_SHORT).show();
-        });
-
-        menuSettings.setOnClickListener(v -> {
-            drawerLayout.closeDrawer(GravityCompat.START);
-            Toast.makeText(MainActivity.this, "Ayarlar Paneli Açılıyor...", Toast.LENGTH_SHORT).show();
-        });
+        menuBookmarks.setOnClickListener(v -> Toast.makeText(this, "Yer İmleri Yakında", Toast.LENGTH_SHORT).show());
+        menuSettings.setOnClickListener(v -> Toast.makeText(this, "Ayarlar Yakında", Toast.LENGTH_SHORT).show());
     }
 
     private void loadWebPage() {
@@ -177,6 +167,49 @@ public class MainActivity extends AppCompatActivity {
             webView.goBack();
         } else {
             super.onBackPressed();
+        }
+    }
+
+    // SQLite Veritabanı Sınıfı - Geçmiş verilerini saklar
+    private static class HistoryDatabaseHelper extends SQLiteOpenHelper {
+        private static final String DB_NAME = "browser_history.db";
+        private static final int DB_VERSION = 1;
+
+        public HistoryDatabaseHelper(android.content.Context context) {
+            super(context, DB_NAME, null, DB_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT)");
+        }
+
+        @Override
+        public void upgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS history");
+            onCreate(db);
+        }
+
+        public void addHistoryItem(String url) {
+            SQLiteDatabase db = this.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("url", url);
+            db.insert("history", null, values);
+            db.close();
+        }
+
+        public List<String> getHistory() {
+            List<String> list = new ArrayList<>();
+            SQLiteDatabase db = this.getReadableDatabase();
+            Cursor cursor = db.rawQuery("SELECT url FROM history ORDER BY id DESC", null);
+            if (cursor.moveToFirst()) {
+                do {
+                    list.add(cursor.getString(0));
+                } while (cursor.moveToNext());
+            }
+            cursor.close();
+            db.close();
+            return list;
         }
     }
 }
