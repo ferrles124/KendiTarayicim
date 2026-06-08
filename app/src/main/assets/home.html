@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Quantum Start</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #111c24, #121212);
+            background-image: linear-gradient(to bottom, rgba(18, 32, 43, 0.8), rgba(18, 18, 18, 0.95)), 
+                              url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px 20px 20px;
+        }
+
+        /* Logo Alanı */
+        .brand-header {
+            text-align: center;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .brand-logo {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #1a73e8, #66bb6a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+
+        /* Arama Kutusu */
+        .search-container {
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 40px;
+        }
+
+        .search-box {
+            width: 100%;
+            height: 52px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 26px;
+            padding: 0 24px;
+            color: #ffffff;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .search-box:focus {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(26, 115, 232, 0.6);
+            box-shadow: 0 6px 20px rgba(26, 115, 232, 0.2);
+        }
+
+        .search-box::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Hızlı Erişim Gridi */
+        .grid-container {
+            width: 100%;
+            max-width: 480px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px 16px;
+            margin-bottom: 40px;
+        }
+
+        .grid-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #ffffff;
+            transition: transform 0.2s ease;
+        }
+
+        .grid-item:active {
+            transform: scale(0.92);
+        }
+
+        .icon-wrapper {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .icon-wrapper img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+
+        .grid-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Özel Premium Maç/Canlı Skor Widget Alanı */
+        .widget-panel {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(30, 30, 30, 0.65);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            margin-top: auto;
+        }
+
+        .widget-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1a73e8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 6px;
+        }
+
+        .match-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            padding: 4px 0;
+        }
+
+        .team-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .team {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+
+        .score-info {
+            text-align: right;
+            font-weight: 700;
+            color: #66bb6a;
+        }
+
+        .match-status {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="brand-header">
+        <div class="brand-logo">Quantum</div>
+    </div>
+
+    <div class="search-container">
+        <input type="text" class="search-box" id="searchIn" placeholder="Arayın veya URL girin..." onkeydown="if(event.key === 'Enter') executeSearch()">
+    </div>
+
+    <div class="grid-container">
+        <a class="grid-item" href="https://www.google.com">
+            <div class="icon-wrapper"><img src="https://www.google.com/favicon.ico" alt="Google"></div>
+            <div class="grid-label">Google</div>
+        </a>
+        <a class="grid-item" href="https://www.youtube.com">
+            <div class="icon-wrapper"><img src="https://www.youtube.com/favicon.ico" alt="YouTube"></div>
+            <div class="grid-label">YouTube</div>
+        </a>
+        <a class="grid-item" href="https://www.instagram.com">
+            <div class="icon-wrapper"><img src="https://www.instagram.com/favicon.ico" alt="Instagram"></div>
+            <div class="grid-label">Instagram</div>
+        </a>
+        <a class="grid-item" href="https://www.amazon.com.tr">
+            <div class="icon-wrapper"><img src="https://www.amazon.com/favicon.ico" alt="Amazon"></div>
+            <div class="grid-label">Amazon</div>
+        </a>
+        <a class="grid-item" href="https://www.trendyol.com">
+            <div class="icon-wrapper"><img src="https://www.trendyol.com/favicon.ico" alt="Trendyol"></div>
+            <div class="grid-label">Trendyol</div>
+        </a>
+        <a class="grid-item" href="https://www.wikipedia.org">
+            <div class="icon-wrapper"><img src="https://en.wikipedia.org/favicon.ico" alt="Wikipedia"></div>
+            <div class="grid-label">Wikipedia</div>
+        </a>
+        <a class="grid-item" href="https://www.github.com">
+            <div class="icon-wrapper"><img src="https://github.com/favicon.ico" alt="GitHub"></div>
+            <div class="grid-label">GitHub</div>
+        </a>
+        <a class="grid-item" href="https://www.galatasaray.org">
+            <div class="icon-wrapper"><img src="https://www.galatasaray.org/favicon.ico" alt="GS"></div>
+            <div class="grid-label">Galatasaray</div>
+        </a>
+    </div>
+
+    <div class="widget-panel">
+        <div class="widget-header">
+            <span>Canlı Puanlar</span>
+            <span>Maç Merkezi</span>
+        </div>
+        <div class="match-row">
+            <div class="team-info">
+                <div class="team">Galatasaray</div>
+                <div class="team">Fenerbahçe</div>
+            </div>
+            <div class="score-info">
+                <div>-</div>
+                <div>-</div>
+                <div class="match-status">Yakında</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function executeSearch() {
+            var query = document.getElementById('searchIn').value.trim();
+            if (query !== "") {
+                // Java tarafına yönlendirme tetikleniyor
+                window.location.href = "search://" + encodeURIComponent(query);
+            }
+        }
+    </script>
+</body>
+</html>
