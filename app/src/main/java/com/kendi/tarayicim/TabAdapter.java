@@ -1,10 +1,10 @@
 package com.kendi.tarayicim;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -43,15 +43,17 @@ public class TabAdapter extends RecyclerView.Adapter<TabAdapter.TabViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull TabViewHolder holder, int position) {
         TabManager.Tab tab = tabs.get(position);
-        holder.tvTitle.setText(tab.title != null && !tab.title.isEmpty() ? tab.title : "Yeni Sekme");
+        String title = (tab.title != null && !tab.title.isEmpty()) ? tab.title : "Yeni Sekme";
+        holder.tvTitle.setText(title);
 
-        // Aktif sekmeyi vurgula
-        holder.itemView.setBackgroundColor(
-                position == selectedIndex ? 0xFF2A2A2A : 0xFF1A1A1A
+        boolean isActive = (position == selectedIndex);
+
+        // Aktif sekme stili
+        holder.itemView.setBackgroundResource(
+                isActive ? R.drawable.tab_bg_active : R.drawable.tab_bg_inactive
         );
-        holder.tvTitle.setTextColor(
-                position == selectedIndex ? 0xFF1A73E8 : 0xFFCCCCCC
-        );
+        holder.tvTitle.setTextColor(isActive ? 0xFFF0F0F0 : 0xFF666666);
+        holder.tabAccent.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
         holder.itemView.setOnClickListener(v -> listener.onTabSelected(holder.getAdapterPosition()));
         holder.btnClose.setOnClickListener(v -> listener.onTabClosed(holder.getAdapterPosition()));
@@ -65,11 +67,13 @@ public class TabAdapter extends RecyclerView.Adapter<TabAdapter.TabViewHolder> {
     static class TabViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle;
         ImageButton btnClose;
+        View tabAccent;
 
         TabViewHolder(View itemView) {
             super(itemView);
             tvTitle = itemView.findViewById(R.id.tab_title);
             btnClose = itemView.findViewById(R.id.btn_close_tab);
+            tabAccent = itemView.findViewById(R.id.tab_accent);
         }
     }
 }
