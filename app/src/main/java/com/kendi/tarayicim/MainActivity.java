@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
@@ -18,6 +19,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -71,13 +73,22 @@ public class MainActivity extends AppCompatActivity {
         setupBrowserClients(webView);
         setupDownloadListener(webView);
         
+        // BEYAZ EKRAN ÇÖZÜMÜ: Dinamik yaratılan WebView'u XML'deki container'a bağlıyoruz
+        FrameLayout webViewContainer = findViewById(R.id.web_view);
+        if (webViewContainer != null) {
+            webViewContainer.removeAllViews();
+            webViewContainer.addView(webView, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+        }
+        
         setupClickListeners();
 
         webView.loadUrl(HOME_URL);
     }
 
     private void initializeUiComponents() {
-        // XML Bileşenleri Mevcut ID Yapısıyla Eşleştirilir
         urlInput = findViewById(R.id.url_input);
         btnGo = findViewById(R.id.btn_go);
         progressBar = findViewById(R.id.progress_bar);
@@ -103,8 +114,8 @@ public class MainActivity extends AppCompatActivity {
         settings.setUseWideViewPort(true);
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
         
-        // Dahili Donanım İvmeli Video ve Medya Oynatıcı Desteği
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         
@@ -133,12 +144,10 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 if (url.equals(HOME_URL)) {
                     urlInput.setText("");
-                    // Ana sayfa açıldığında Canlı Skor Botunu Tetikle
                     liveScoreEngine.startLiveUpdates(view);
                 } else {
                     urlInput.setText(url);
                     dbHelper.addHistoryItem(url, view.getTitle());
-                    // Başka sayfaya geçildiğinde skor botunu durdur (Batarya tasarrufu)
                     liveScoreEngine.stopUpdates();
                 }
             }
@@ -205,10 +214,8 @@ public class MainActivity extends AppCompatActivity {
         btnRefresh.setOnClickListener(v -> webView.reload());
         btnHome.setOnClickListener(v -> webView.loadUrl(HOME_URL));
 
-        // Yan Menü - 6 Büyük Fonksiyon Tetikleyicileri
         menuAdBlock.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            // 5. Adım: Güvenli Proxy Tüneli tek tıkla açılıp kapanır hale getirildi
             boolean nextState = !proxyTunnel.isTunnelActive();
             proxyTunnel.toggleSecureTunnel(webView, nextState);
             Toast.makeText(this, nextState ? "Gizlilik Tüneli Aktif" : "Standart Bağlantı Modu", Toast.LENGTH_LONG).show();
@@ -216,7 +223,6 @@ public class MainActivity extends AppCompatActivity {
 
         menuHistory.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            // 1. Adım: Çoklu sekme durumu hakkında kullanıcıya bilgi aktarılır
             Toast.makeText(this, "Açık Sekme Sayısı: " + tabManager.getTabCount(), Toast.LENGTH_SHORT).show();
         });
 
@@ -225,15 +231,15 @@ public class MainActivity extends AppCompatActivity {
             String currentUrl = webView.getUrl();
             if (currentUrl != null && !currentUrl.isEmpty() && !currentUrl.equals(HOME_URL)) {
                 dbHelper.addBookmark(currentUrl, webView.getTitle());
-                // 4. Adım: Şifre Kasası otomatik yedekleme tetikleyicisi
                 passwordVault.saveCredential(currentUrl, "Kullanici", "GuvenliSifre123");
                 Toast.makeText(this, "Veriler Güvenli Kasaya İşlendi.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Ana sayfa yer imlerine eklenemez.", Toast.LENGTH_SHORT).show();
             }
         });
 
         menuSettings.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            // 6. Adım: Masaüstü / Mobil Görünüm Değiştirici Ayarlar Laboratuvarı
             String currentAgent = webView.getSettings().getUserAgentString();
             if (currentAgent != null && currentAgent.contains("Desktop")) {
                 webView.getSettings().setUserAgentString(null);
@@ -270,7 +276,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        // Uygulama kapanırken skor motoru sızıntı yapmasın diye temizlenir
         liveScoreEngine.stopUpdates();
         super.onDestroy();
     }
@@ -284,5 +289,5 @@ public class MainActivity extends AppCompatActivity {
         } else {
             super.onBackPressed();
         }
-    }
-}                                          
+    } 
+}
