@@ -202,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Gelişmiş SQLite Veritabanı Sınıfı - Tüm veri kaydını tek başına üstlenir
+    // Gelişmiş SQLite Veritabanı Sınıfı - onUpgrade Parametre İmzası Düzeltildi
     private static class BrowserDatabaseHelper extends SQLiteOpenHelper {
         private static final String DB_NAME = "quantum_browser.db";
         private static final int DB_VERSION = 2;
@@ -218,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public void upgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
             db.execSQL("DROP TABLE IF EXISTS history");
             db.execSQL("DROP TABLE IF EXISTS bookmarks");
             onCreate(db);
