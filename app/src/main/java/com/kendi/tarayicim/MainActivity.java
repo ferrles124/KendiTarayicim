@@ -31,6 +31,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.io.ByteArrayInputStream;
 import java.net.URLDecoder;
 import java.util.List;
+import android.content.Intent;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -276,10 +277,10 @@ public class MainActivity extends AppCompatActivity {
 
     // ── TIKLAMALAR ──
     private void setupClickListeners() {
-        btnGo.setOnClickListener(v -> { navigate(); hideKeyboard(); });
-        urlInput.setOnEditorActionListener((v, id, e) -> {
-            navigate(); hideKeyboard(); return true;
-        });
+        menuSettings.setOnClickListener(v -> {
+    drawerLayout.closeDrawer(GravityCompat.START);
+    startActivity(new Intent(this, SettingsActivity.class));
+});
 
         btnMenu.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         btnBack.setOnClickListener(v -> { if (webView.canGoBack()) webView.goBack(); });
