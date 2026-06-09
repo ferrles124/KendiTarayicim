@@ -61,11 +61,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        dbHelper = new BrowserDatabaseHelper(this);
-        adBlockEngine = new AdBlockEngine();
-        tabManager = new TabManager(this);
+        dbHelper        = new BrowserDatabaseHelper(this);
+        adBlockEngine   = new AdBlockEngine();
+        tabManager      = new TabManager(this);
         liveScoreEngine = new LiveScoreEngine();
-        proxyTunnel = new ProxyTunnel();
+        proxyTunnel     = new ProxyTunnel();
 
         initViews();
         setupTabManager();
@@ -205,7 +205,6 @@ public class MainActivity extends AppCompatActivity {
                 tabManager.updateTabInfo(url, view.getTitle());
                 tabAdapter.notifyDataSetChanged();
 
-                // Engelleme sayacını güncelle
                 int count = adBlockEngine.getBlockCount();
                 if (count != totalBlocked) {
                     totalBlocked = count;
@@ -266,7 +265,7 @@ public class MainActivity extends AppCompatActivity {
     // ── ADBLOCK BUTON GÜNCELLE ──
     private void updateAdBlockButton() {
         if (totalBlocked > 0) {
-            menuAdBlock.setText("🛡  Engellendi  •  " + totalBlocked);
+            menuAdBlock.setText("Engellendi  •  " + totalBlocked);
         } else {
             menuAdBlock.setText("Reklam Engelleme");
         }
@@ -306,7 +305,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!dbHelper.isBookmarked(currentUrl)) {
                     boolean added = dbHelper.addBookmark(currentUrl, webView.getTitle());
                     Toast.makeText(this,
-                            added ? "⭐ Yer imine eklendi" : "Zaten kayıtlı",
+                            added ? "Yer imine eklendi" : "Zaten kayıtlı",
                             Toast.LENGTH_SHORT).show();
                 } else {
                     showBookmarkList();
@@ -329,9 +328,10 @@ public class MainActivity extends AppCompatActivity {
             proxyTunnel.toggleSecureTunnel(webView, next);
             int count = adBlockEngine.getBlockCount();
             String msg = next
-                    ? "🛡 Aktif — " + count + " istek engellendi"
+                    ? "Aktif — " + count + " istek engellendi"
                     : "Standart bağlantı modu";
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            updateAdBlockButton();
         });
 
         // AYARLAR
