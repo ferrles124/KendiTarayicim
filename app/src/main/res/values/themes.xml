@@ -7,7 +7,7 @@
         <item name="colorPrimaryVariant">#1A6CC8</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSurface">#161616</item>
-        <item name="colorBackground">#0D0D0D</item>
+        <item name="android:colorBackground">#0D0D0D</item>
         <item name="android:windowBackground">#0D0D0D</item>
         <item name="android:statusBarColor">#111111</item>
         <item name="android:navigationBarColor">#161616</item>
@@ -15,7 +15,7 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
-    <!-- Splash teması — tam ekran, hızlı -->
+    <!-- Splash teması -->
     <style name="Theme.KendiTarayicim.Splash" parent="Theme.KendiTarayicim">
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowBackground">#0D0D0D</item>
