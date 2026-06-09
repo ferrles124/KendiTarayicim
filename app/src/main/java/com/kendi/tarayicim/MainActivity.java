@@ -2,6 +2,7 @@ package com.kendi.tarayicim;
 
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -31,7 +32,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.io.ByteArrayInputStream;
 import java.net.URLDecoder;
 import java.util.List;
-import android.content.Intent;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,8 +60,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        PermissionHelper.requestIfNeeded(this);
-        
+
         dbHelper = new BrowserDatabaseHelper(this);
         adBlockEngine = new AdBlockEngine();
         tabManager = new TabManager(this);
@@ -122,27 +121,27 @@ public class MainActivity extends AppCompatActivity {
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         tabAdapter = new TabAdapter(tabManager.getAllTabs(), 0,
                 new TabAdapter.OnTabActionListener() {
-            @Override
-            public void onTabSelected(int index) {
-                tabManager.switchTab(index);
-            }
-            @Override
-            public void onTabClosed(int index) {
-                if (tabManager.getTabCount() <= 1) {
-                    Toast.makeText(MainActivity.this,
-                            "En az bir sekme açık olmalı", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                tabManager.closeTab(index);
-                tabAdapter.notifyDataSetChanged();
-                WebView current = tabManager.getCurrentWebView();
-                if (current != null) {
-                    webView = current;
-                    attachWebView(webView);
-                    tabAdapter.setSelectedIndex(tabManager.getCurrentTabIndex());
-                }
-            }
-        });
+                    @Override
+                    public void onTabSelected(int index) {
+                        tabManager.switchTab(index);
+                    }
+                    @Override
+                    public void onTabClosed(int index) {
+                        if (tabManager.getTabCount() <= 1) {
+                            Toast.makeText(MainActivity.this,
+                                    "En az bir sekme açık olmalı", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        tabManager.closeTab(index);
+                        tabAdapter.notifyDataSetChanged();
+                        WebView current = tabManager.getCurrentWebView();
+                        if (current != null) {
+                            webView = current;
+                            attachWebView(webView);
+                            tabAdapter.setSelectedIndex(tabManager.getCurrentTabIndex());
+                        }
+                    }
+                });
         tabsRecycler.setAdapter(tabAdapter);
     }
 
@@ -255,11 +254,11 @@ public class MainActivity extends AppCompatActivity {
                 DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                 if (dm != null) {
                     dm.enqueue(req);
-                    Toast.makeText(this, "İndirme başladı: " + fileName,
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this,
+                            "İndirme başladı: " + fileName, Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
-                Toast.makeText(this, "İndirme hatası", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "İndirme hatası", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -268,19 +267,17 @@ public class MainActivity extends AppCompatActivity {
     private void updateAdBlockButton() {
         if (totalBlocked > 0) {
             menuAdBlock.setText("🛡  Engellendi  •  " + totalBlocked);
-            menuAdBlock.setTextColor(0xFF4D9EFF);
         } else {
             menuAdBlock.setText("Reklam Engelleme");
-            menuAdBlock.setTextColor(0xFF4D9EFF);
         }
     }
 
     // ── TIKLAMALAR ──
     private void setupClickListeners() {
-        menuSettings.setOnClickListener(v -> {
-    drawerLayout.closeDrawer(GravityCompat.START);
-    startActivity(new Intent(this, SettingsActivity.class));
-});
+        btnGo.setOnClickListener(v -> { navigate(); hideKeyboard(); });
+        urlInput.setOnEditorActionListener((v, id, e) -> {
+            navigate(); hideKeyboard(); return true;
+        });
 
         btnMenu.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         btnBack.setOnClickListener(v -> { if (webView.canGoBack()) webView.goBack(); });
@@ -295,9 +292,9 @@ public class MainActivity extends AppCompatActivity {
             List<BrowserDatabaseHelper.HistoryItem> items = dbHelper.getHistoryItems();
             BottomSheetPanel.showHistory(this, items, dbHelper,
                     new BottomSheetPanel.OnItemClickListener() {
-                @Override public void onItemClick(String url) { webView.loadUrl(url); }
-                @Override public void onItemDelete(int id) { dbHelper.deleteHistoryItem(id); }
-            });
+                        @Override public void onItemClick(String url) { webView.loadUrl(url); }
+                        @Override public void onItemDelete(int id) { dbHelper.deleteHistoryItem(id); }
+                    });
         });
 
         // YER İMLERİ
@@ -337,19 +334,10 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         });
 
-        // AYARLAR — masaüstü/mobil mod
+        // AYARLAR
         menuSettings.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
-            String ua = webView.getSettings().getUserAgentString();
-            if (ua != null && ua.contains("Windows")) {
-                webView.getSettings().setUserAgentString(null);
-                Toast.makeText(this, "📱 Mobil Mod", Toast.LENGTH_SHORT).show();
-            } else {
-                webView.getSettings().setUserAgentString(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-                Toast.makeText(this, "🖥 Masaüstü Mod", Toast.LENGTH_SHORT).show();
-            }
-            webView.reload();
+            startActivity(new Intent(this, SettingsActivity.class));
         });
     }
 
@@ -357,9 +345,9 @@ public class MainActivity extends AppCompatActivity {
         List<BrowserDatabaseHelper.BookmarkItem> items = dbHelper.getBookmarkItems();
         BottomSheetPanel.showBookmarks(this, items,
                 new BottomSheetPanel.OnItemClickListener() {
-            @Override public void onItemClick(String url) { webView.loadUrl(url); }
-            @Override public void onItemDelete(int id) { dbHelper.deleteBookmark(id); }
-        });
+                    @Override public void onItemClick(String url) { webView.loadUrl(url); }
+                    @Override public void onItemDelete(int id) { dbHelper.deleteBookmark(id); }
+                });
     }
 
     private void navigate() {
