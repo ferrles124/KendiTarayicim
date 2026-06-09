@@ -17,10 +17,10 @@
         android:strokeWidth="1.8"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:x="4"
-        android:y="11"
-        android:width="16"
-        android:height="11"/>
+        android:x="4dp"
+        android:y="11dp"
+        android:width="16dp"
+        android:height="11dp"/>
     <path
         android:fillColor="#4D9EFF"
         android:pathData="M12,15 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0"/>
