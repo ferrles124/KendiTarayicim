@@ -135,7 +135,7 @@ public class BrowserDatabaseHelper extends SQLiteOpenHelper {
     public boolean isBookmarked(String url) {
         if (url == null) return false;
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id FROM bookmarks WHERE url=?", new String[]{url});
+        Cursor cursor = db.query("bookmarks", new String[]{"id"}, "url=?", new String[]{url}, null, null, null);
         boolean exists = cursor.getCount() > 0;
         cursor.close();
         db.close();
