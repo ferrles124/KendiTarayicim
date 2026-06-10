@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private DrawerLayout drawerLayout;
     private ImageButton btnMenu, btnBack, btnForward, btnRefresh, btnHome, btnNewTab;
-    private Button menuBookmarks, menuHistory, menuAdBlock, menuSettings;
+    private View menuBookmarks, menuHistory, menuAdBlock, menuSettings;
     private RecyclerView tabsRecycler;
     private TabAdapter tabAdapter;
     private FrameLayout webViewContainer;
@@ -264,12 +264,14 @@ public class MainActivity extends AppCompatActivity {
 
     // ── ADBLOCK BUTON GÜNCELLE ──
     private void updateAdBlockButton() {
-        if (totalBlocked > 0) {
-            menuAdBlock.setText("Engellendi  •  " + totalBlocked);
-        } else {
-            menuAdBlock.setText("Reklam Engelleme");
-        }
+    TextView label = menuAdBlock.findViewById(R.id.menu_adblock_label);
+    if (label == null) return;
+    if (totalBlocked > 0) {
+        label.setText("Engellendi  •  " + totalBlocked);
+    } else {
+        label.setText("Reklam Engelleme");
     }
+
 
     // ── TIKLAMALAR ──
     private void setupClickListeners() {
