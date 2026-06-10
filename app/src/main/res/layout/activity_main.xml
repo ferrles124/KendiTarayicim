@@ -193,104 +193,125 @@
             android:paddingTop="52dp"
             android:paddingHorizontal="16dp"
             android:paddingBottom="24dp">
-
+  
             <!-- Logo alanı -->
+            <!-- Yer İmleri -->
             <LinearLayout
+                android:id="@+id/menu_bookmarks"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="32dp"
-                android:paddingStart="4dp">
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/menu_item_bg"
+                android:clickable="true"
+                android:focusable="true">
 
-                <View
-                    android:layout_width="4dp"
-                    android:layout_height="28dp"
-                    android:background="#4D9EFF"
-                    android:layout_marginEnd="12dp"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_nav_bookmarks"
+                    android:layout_marginEnd="14dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="KendiTarayicim"
-                    android:textColor="#F0F0F0"
-                    android:textSize="18sp"
-                    android:letterSpacing="0.05"
-                    android:textStyle="bold"/>
+                    android:text="Yer İmleri"
+                    android:textColor="#CCCCCC"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.02"/>
+
             </LinearLayout>
 
-            <Button
-                android:id="@+id/menu_bookmarks"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="Yer İmleri"
-                android:textColor="#CCCCCC"
-                android:textSize="14sp"
-                android:letterSpacing="0.02"
-                android:backgroundTint="#1A1A1A"
-                android:gravity="start|center_vertical"
-                android:paddingStart="16dp"
-                android:layout_marginBottom="8dp"
-                app:cornerRadius="10dp"/>
-
-            <Button
+            <!-- Geçmiş -->
+            <LinearLayout
                 android:id="@+id/menu_history"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="Geçmiş"
-                android:textColor="#CCCCCC"
-                android:textSize="14sp"
-                android:letterSpacing="0.02"
-                android:backgroundTint="#1A1A1A"
-                android:gravity="start|center_vertical"
-                android:paddingStart="16dp"
-                android:layout_marginBottom="8dp"
-                app:cornerRadius="10dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/menu_item_bg"
+                android:clickable="true"
+                android:focusable="true">
 
-            <Button
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_nav_history"
+                    android:layout_marginEnd="14dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Geçmiş"
+                    android:textColor="#CCCCCC"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.02"/>
+
+            </LinearLayout>
+
+            <!-- Reklam Engelleme -->
+            <LinearLayout
                 android:id="@+id/menu_adblock"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="Reklam Engelleme"
-                android:textColor="#4D9EFF"
-                android:textSize="14sp"
-                android:letterSpacing="0.02"
-                android:backgroundTint="#0D1F33"
-                android:gravity="start|center_vertical"
-                android:paddingStart="16dp"
-                android:layout_marginBottom="8dp"
-                app:cornerRadius="10dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/menu_item_bg_accent"
+                android:clickable="true"
+                android:focusable="true">
 
-            <Button
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_nav_adblock"
+                    android:layout_marginEnd="14dp"/>
+
+                <TextView
+                    android:id="@+id/menu_adblock_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reklam Engelleme"
+                    android:textColor="#4D9EFF"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.02"/>
+
+            </LinearLayout>
+
+            <!-- Ayarlar -->
+            <LinearLayout
                 android:id="@+id/menu_settings"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="Ayarlar"
-                android:textColor="#CCCCCC"
-                android:textSize="14sp"
-                android:letterSpacing="0.02"
-                android:backgroundTint="#1A1A1A"
-                android:gravity="start|center_vertical"
-                android:paddingStart="16dp"
-                android:layout_marginBottom="8dp"
-                app:cornerRadius="10dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/menu_item_bg"
+                android:clickable="true"
+                android:focusable="true">
 
-            <!-- Boşluk doldurucu -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_nav_settings"
+                    android:layout_marginEnd="14dp"/>
 
-            <!-- Versiyon -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="v2.0 — Aşama 1"
-                android:textColor="#333333"
-                android:textSize="11sp"
-                android:gravity="center"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ayarlar"
+                    android:textColor="#CCCCCC"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.02"/>
 
-        </LinearLayout>
+            </LinearLayout>
+            
     </com.google.android.material.navigation.NavigationView>
 
 </androidx.drawerlayout.widget.DrawerLayout>
