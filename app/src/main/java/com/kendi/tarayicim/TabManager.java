@@ -1,6 +1,7 @@
 package com.kendi.tarayicim;
 
 import android.content.Context;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +64,20 @@ public class TabManager {
 
     public void closeTab(int index) {
         if (index >= 0 && index < tabList.size()) {
-            tabList.get(index).webView.destroy();
+            Tab tab = tabList.get(index);
+            WebView webView = tab.webView;
+            
+            // ✅ Memory leak fix: Parent view'dan çıkar
+            ViewGroup parent = (ViewGroup) webView.getParent();
+            if (parent != null) {
+                parent.removeView(webView);
+            }
+            
+            // ✅ WebView'i proper cleanup ile destroy et
+            webView.stopLoading();
+            webView.clearHistory();
+            webView.destroy();
+            
             tabList.remove(index);
             if (currentTabIndex >= tabList.size()) {
                 currentTabIndex = tabList.size() - 1;
@@ -97,5 +111,19 @@ public class TabManager {
 
     public int getTabCount() {
         return tabList.size();
+    }
+
+    // ✅ Cleanup metodu - Activity destroy olurken çağır
+    public void destroyAllTabs() {
+        for (Tab tab : tabList) {
+            ViewGroup parent = (ViewGroup) tab.webView.getParent();
+            if (parent != null) {
+                parent.removeView(tab.webView);
+            }
+            tab.webView.stopLoading();
+            tab.webView.clearHistory();
+            tab.webView.destroy();
+        }
+        tabList.clear();
     }
 }
