@@ -18,7 +18,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
+import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -264,12 +264,13 @@ public class MainActivity extends AppCompatActivity {
 
     // ── ADBLOCK BUTON GÜNCELLE ──
     private void updateAdBlockButton() {
-    TextView label = menuAdBlock.findViewById(R.id.menu_adblock_label);
-    if (label == null) return;
-    if (totalBlocked > 0) {
-        label.setText("Engellendi  •  " + totalBlocked);
-    } else {
-        label.setText("Reklam Engelleme");
+        TextView label = menuAdBlock.findViewById(R.id.menu_adblock_label);
+        if (label == null) return;
+        if (totalBlocked > 0) {
+            label.setText("Engellendi  •  " + totalBlocked);
+        } else {
+            label.setText("Reklam Engelleme");
+        }
     }
 
 
