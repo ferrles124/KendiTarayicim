@@ -17,6 +17,7 @@ public class LoginActivity extends AppCompatActivity {
     private ImageButton   btnTogglePassword;
     private View          btnLogin, btnRegister;
     private TextView      loginError;
+    private SceneManager  sceneManager;
 
     private SupabaseAuth auth;
     private boolean      passwordVisible = false;
@@ -46,6 +47,9 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin          = findViewById(R.id.btn_login);
         btnRegister       = findViewById(R.id.btn_register);
         loginError        = findViewById(R.id.login_error);
+
+        sceneManager = new SceneManager(this, characterView);
+        sceneManager.start();
     }
 
     // ── LİSTENERS ──
@@ -53,8 +57,14 @@ public class LoginActivity extends AppCompatActivity {
 
         // ── E-POSTA ODAK ──
         inputEmail.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) characterView.setState(CharacterView.STATE_EMAIL_FOCUS);
-            else          characterView.setState(CharacterView.STATE_IDLE);
+            if (hasFocus) {
+                characterView.setState(CharacterView.STATE_EMAIL_FOCUS);
+                sceneManager.onEmailFocus();
+            } else {
+                characterView.setState(CharacterView.STATE_IDLE);
+                sceneManager.onEmailBlur();
+            }
+            sceneManager.onUserActivity();
         });
 
         // ── ŞİFRE ODAK ──
@@ -63,9 +73,11 @@ public class LoginActivity extends AppCompatActivity {
                 characterView.setState(passwordVisible
                         ? CharacterView.STATE_PASSWORD_SHOW
                         : CharacterView.STATE_PASSWORD_HIDE);
+                sceneManager.onPasswordFocus();
             } else {
                 characterView.setState(CharacterView.STATE_IDLE);
             }
+            sceneManager.onUserActivity();
         });
 
         // ── ŞİFRE GÖSTER / GİZLE ──
@@ -78,6 +90,8 @@ public class LoginActivity extends AppCompatActivity {
                 btnTogglePassword.setImageResource(R.drawable.ic_eye_on);
                 if (inputPassword.hasFocus())
                     characterView.setState(CharacterView.STATE_PASSWORD_SHOW);
+                
+                sceneManager.onPasswordShow();
             } else {
                 inputPassword.setInputType(
                         InputType.TYPE_CLASS_TEXT |
@@ -86,6 +100,7 @@ public class LoginActivity extends AppCompatActivity {
                 if (inputPassword.hasFocus())
                     characterView.setState(CharacterView.STATE_PASSWORD_HIDE);
             }
+            sceneManager.onUserActivity();
             inputPassword.setSelection(inputPassword.getText().length());
         });
 
@@ -121,6 +136,7 @@ public class LoginActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         setLoading(false);
                         characterView.setState(CharacterView.STATE_SUCCESS);
+                        sceneManager.onSuccess();
                         new Handler().postDelayed(() -> goToMain(), 700);
                     });
                 }
@@ -129,6 +145,7 @@ public class LoginActivity extends AppCompatActivity {
                         setLoading(false);
                         showError(translateError(msg));
                         characterView.setState(CharacterView.STATE_ERROR);
+                        sceneManager.onError();
                     });
                 }
             });
@@ -149,6 +166,7 @@ public class LoginActivity extends AppCompatActivity {
                         loginError.setText("Kayit basarili! Simdi giris yapabilirsin.");
                         loginError.setVisibility(View.VISIBLE);
                         characterView.setState(CharacterView.STATE_SUCCESS);
+                        sceneManager.onSuccess();
                     });
                 }
                 @Override public void onError(String msg) {
@@ -156,6 +174,7 @@ public class LoginActivity extends AppCompatActivity {
                         setLoading(false);
                         showError(translateError(msg));
                         characterView.setState(CharacterView.STATE_ERROR);
+                        sceneManager.onError();
                     });
                 }
             });
@@ -206,5 +225,13 @@ public class LoginActivity extends AppCompatActivity {
     private void goToMain() {
         startActivity(new Intent(this, MainActivity.class));
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (sceneManager != null) {
+            sceneManager.stop();
+        }
     }
 }
