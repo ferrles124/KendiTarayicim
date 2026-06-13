@@ -50,6 +50,10 @@ public class LoginActivity extends AppCompatActivity {
 
         sceneManager = new SceneManager(this, characterView);
         sceneManager.start();
+
+        // characterView'e input referanslarını bağlama
+        characterView.setEmailInput(inputEmail);
+        characterView.setPasswordInput(inputPassword);
     }
 
     // ── LİSTENERS ──
@@ -233,5 +237,6 @@ public class LoginActivity extends AppCompatActivity {
         if (sceneManager != null) {
             sceneManager.stop();
         }
+        characterView.stopSystem();
     }
 }
