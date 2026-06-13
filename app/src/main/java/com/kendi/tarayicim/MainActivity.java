@@ -18,11 +18,11 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GravityCompat;
@@ -35,22 +35,24 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private WebView webView;
-    private EditText urlInput;
-    private ImageButton btnGo;
-    private ProgressBar progressBar;
-    private DrawerLayout drawerLayout;
-    private ImageButton btnMenu, btnBack, btnForward, btnRefresh, btnHome, btnNewTab;
-    private View menuBookmarks, menuHistory, menuAdBlock, menuSettings;
-    private RecyclerView tabsRecycler;
-    private TabAdapter tabAdapter;
-    private FrameLayout webViewContainer;
+    private WebView       webView;
+    private EditText      urlInput;
+    private ImageButton   btnGo;
+    private ProgressBar   progressBar;
+    private DrawerLayout  drawerLayout;
+    private ImageButton   btnMenu, btnBack, btnForward, btnRefresh, btnHome, btnNewTab;
+    private View          menuBookmarks, menuHistory, menuAdBlock, menuSettings, menuAccount;
+    private TextView      menuAdBlockLabel, menuAccountLabel;
+    private RecyclerView  tabsRecycler;
+    private TabAdapter    tabAdapter;
+    private FrameLayout   webViewContainer;
 
     private BrowserDatabaseHelper dbHelper;
-    private AdBlockEngine adBlockEngine;
-    private TabManager tabManager;
-    private LiveScoreEngine liveScoreEngine;
-    private ProxyTunnel proxyTunnel;
+    private AdBlockEngine         adBlockEngine;
+    private TabManager            tabManager;
+    private LiveScoreEngine       liveScoreEngine;
+    private ProxyTunnel           proxyTunnel;
+    private SupabaseAuth          auth;
 
     private int totalBlocked = 0;
 
@@ -66,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
         tabManager      = new TabManager(this);
         liveScoreEngine = new LiveScoreEngine();
         proxyTunnel     = new ProxyTunnel();
+        auth            = new SupabaseAuth(this);
 
         initViews();
         setupTabManager();
@@ -96,6 +99,9 @@ public class MainActivity extends AppCompatActivity {
         menuHistory      = findViewById(R.id.menu_history);
         menuAdBlock      = findViewById(R.id.menu_adblock);
         menuSettings     = findViewById(R.id.menu_settings);
+        menuAccount      = findViewById(R.id.menu_account);
+        menuAdBlockLabel = findViewById(R.id.menu_adblock_label);
+        menuAccountLabel = findViewById(R.id.menu_account_label);
     }
 
     // ── SEKMELER ──
@@ -121,15 +127,13 @@ public class MainActivity extends AppCompatActivity {
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         tabAdapter = new TabAdapter(tabManager.getAllTabs(), 0,
                 new TabAdapter.OnTabActionListener() {
-                    @Override
-                    public void onTabSelected(int index) {
+                    @Override public void onTabSelected(int index) {
                         tabManager.switchTab(index);
                     }
-                    @Override
-                    public void onTabClosed(int index) {
+                    @Override public void onTabClosed(int index) {
                         if (tabManager.getTabCount() <= 1) {
                             Toast.makeText(MainActivity.this,
-                                    "En az bir sekme açık olmalı", Toast.LENGTH_SHORT).show();
+                                    "En az bir sekme acik olmali", Toast.LENGTH_SHORT).show();
                             return;
                         }
                         tabManager.closeTab(index);
@@ -163,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl(url != null ? url : HOME_URL);
     }
 
-    // ── WEBVIEW AYARLARI ──
+    // ── WEBVIEW ──
     private void configureWebView(WebView web) {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -175,26 +179,21 @@ public class MainActivity extends AppCompatActivity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         web.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onProgressChanged(WebView view, int p) {
+            @Override public void onProgressChanged(WebView view, int p) {
                 progressBar.setProgress(p);
                 progressBar.setVisibility(p == 100 ? View.GONE : View.VISIBLE);
             }
-            @Override
-            public void onReceivedTitle(WebView view, String title) {
+            @Override public void onReceivedTitle(WebView view, String title) {
                 tabManager.updateTabInfo(view.getUrl(), title);
                 tabAdapter.notifyDataSetChanged();
             }
         });
 
         web.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
             }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
+            @Override public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 if (url != null && !url.equals(HOME_URL)) {
                     urlInput.setText(url);
@@ -204,16 +203,14 @@ public class MainActivity extends AppCompatActivity {
                 }
                 tabManager.updateTabInfo(url, view.getTitle());
                 tabAdapter.notifyDataSetChanged();
-
                 int count = adBlockEngine.getBlockCount();
                 if (count != totalBlocked) {
                     totalBlocked = count;
                     runOnUiThread(() -> updateAdBlockButton());
                 }
             }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            @Override public boolean shouldOverrideUrlLoading(
+                    WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 if (url.startsWith("search://")) {
                     try {
@@ -224,9 +221,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return false;
             }
-
-            @Override
-            public WebResourceResponse shouldInterceptRequest(
+            @Override public WebResourceResponse shouldInterceptRequest(
                     WebView view, WebResourceRequest request) {
                 if (adBlockEngine.isAdRequest(request.getUrl().toString())) {
                     return new WebResourceResponse("text/plain", "UTF-8",
@@ -244,7 +239,7 @@ public class MainActivity extends AppCompatActivity {
                 req.addRequestHeader("User-Agent", ua);
                 String fileName = URLUtil.guessFileName(url, cd, mime);
                 req.setTitle(fileName);
-                req.setDescription("İndiriliyor...");
+                req.setDescription("Indiriliyor...");
                 req.allowScanningByMediaScanner();
                 req.setNotificationVisibility(
                         DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
@@ -254,25 +249,36 @@ public class MainActivity extends AppCompatActivity {
                 if (dm != null) {
                     dm.enqueue(req);
                     Toast.makeText(MainActivity.this,
-                            "İndirme başladı: " + fileName, Toast.LENGTH_SHORT).show();
+                            "Indirme basladi: " + fileName, Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
-                Toast.makeText(MainActivity.this, "İndirme hatası", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Indirme hatasi", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    // ── ADBLOCK BUTON GÜNCELLE ──
+    // ── ADBLOCK BUTON ──
     private void updateAdBlockButton() {
-        TextView label = menuAdBlock.findViewById(R.id.menu_adblock_label);
-        if (label == null) return;
+        if (menuAdBlockLabel == null) return;
         if (totalBlocked > 0) {
-            label.setText("Engellendi  •  " + totalBlocked);
+            menuAdBlockLabel.setText("Engellendi  •  " + totalBlocked);
         } else {
-            label.setText("Reklam Engelleme");
+            menuAdBlockLabel.setText("Reklam Engelleme");
         }
     }
 
+    // ── HESAP BUTON ──
+    private void updateAccountButton() {
+        if (menuAccountLabel == null) return;
+        if (auth.isLoggedIn()) {
+            String email = auth.getSavedEmail();
+            menuAccountLabel.setText(email.isEmpty() ? "Hesabim" : email);
+            menuAccountLabel.setTextColor(0xFF4D9EFF);
+        } else {
+            menuAccountLabel.setText("Giris Yap");
+            menuAccountLabel.setTextColor(0xFFCCCCCC);
+        }
+    }
 
     // ── TIKLAMALAR ──
     private void setupClickListeners() {
@@ -288,7 +294,10 @@ public class MainActivity extends AppCompatActivity {
         btnHome.setOnClickListener(v -> { webView.loadUrl(HOME_URL); urlInput.setText(""); });
         btnNewTab.setOnClickListener(v -> openNewTab(HOME_URL));
 
-        // GEÇMİŞ
+        updateAdBlockButton();
+        updateAccountButton();
+
+        // GECMIS
         menuHistory.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             List<BrowserDatabaseHelper.HistoryItem> items = dbHelper.getHistoryItems();
@@ -299,7 +308,7 @@ public class MainActivity extends AppCompatActivity {
                     });
         });
 
-        // YER İMLERİ
+        // YER IMLERI
         menuBookmarks.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             String currentUrl = webView.getUrl();
@@ -308,7 +317,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!dbHelper.isBookmarked(currentUrl)) {
                     boolean added = dbHelper.addBookmark(currentUrl, webView.getTitle());
                     Toast.makeText(this,
-                            added ? "Yer imine eklendi" : "Zaten kayıtlı",
+                            added ? "Yer imine eklendi" : "Zaten kayitli",
                             Toast.LENGTH_SHORT).show();
                 } else {
                     showBookmarkList();
@@ -332,7 +341,7 @@ public class MainActivity extends AppCompatActivity {
             int count = adBlockEngine.getBlockCount();
             String msg = next
                     ? "Aktif — " + count + " istek engellendi"
-                    : "Standart bağlantı modu";
+                    : "Standart baglanti modu";
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
             updateAdBlockButton();
         });
@@ -341,6 +350,25 @@ public class MainActivity extends AppCompatActivity {
         menuSettings.setOnClickListener(v -> {
             drawerLayout.closeDrawer(GravityCompat.START);
             startActivity(new Intent(this, SettingsActivity.class));
+        });
+
+        // HESAP
+        menuAccount.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            if (auth.isLoggedIn()) {
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Hesap")
+                    .setMessage(auth.getSavedEmail())
+                    .setPositiveButton("Cikis Yap", (d, w) -> {
+                        auth.signOut();
+                        updateAccountButton();
+                        Toast.makeText(this, "Cikis yapildi", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Iptal", null)
+                    .show();
+            } else {
+                startActivity(new Intent(this, LoginActivity.class));
+            }
         });
     }
 
@@ -382,6 +410,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateAccountButton();
     }
 
     @Override
