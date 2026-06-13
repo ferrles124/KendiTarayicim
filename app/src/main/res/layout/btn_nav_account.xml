@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackgroundBorderless"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/nav_icon_account"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_nav_account"
+        android:contentDescription="Hesap İkonu" />
+
+    <TextView
+        android:id="@+id/nav_text_account"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Hesap"
+        android:textSize="12sp"
+        android:textColor="?attr/colorControlNormal" />
+
+</LinearLayout>
