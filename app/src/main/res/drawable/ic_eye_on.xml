@@ -10,11 +10,9 @@
         android:strokeLineCap="round"
         android:fillColor="@android:color/transparent"
         android:pathData="M1,12 C1,12 5,4 12,4 C19,4 23,12 23,12 C23,12 19,20 12,20 C5,20 1,12 1,12Z"/>
-    <circle
+    <path
         android:strokeColor="#4D9EFF"
         android:strokeWidth="2"
         android:fillColor="@android:color/transparent"
-        android:cx="12"
-        android:cy="12"
-        android:r="3"/>
+        android:pathData="M12,9 C10.343,9 9,10.343 9,12 C9,13.657 10.343,15 12,15 C13.657,15 15,13.657 15,12 C15,10.343 13.657,9 12,9Z"/>
 </vector>
