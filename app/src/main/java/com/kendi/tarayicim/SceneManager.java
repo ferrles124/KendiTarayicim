@@ -25,11 +25,6 @@ public class SceneManager {
         allBrains = new CharacterBrain[]{vigoBrain, noxBrain, pufBrain, zipBrain};
 
         // Brain'leri view'a bağla
-        CharacterBrain.StateListener stateListener = (id, old, next) ->
-            view.onBrainStateChanged(id, next);
-
-        CharacterBrain.StateListener emotionListener = (id, old, next) -> {};
-
         for (CharacterBrain b : allBrains) {
             b.setListener(new CharacterBrain.StateListener() {
                 @Override
