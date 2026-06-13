@@ -9,6 +9,7 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.*;
+import android.view.animation.TimeInterpolator;
 import java.util.Random;
 
 public class CharacterView extends View {
