@@ -87,26 +87,26 @@ public class LoginActivity extends AppCompatActivity {
         // ── DOKUNMA → GÖZ TAKİBİ ──
         // ── DOKUNMA → GÖZ TAKİBİ ──
         View rootView = getWindow().getDecorView().getRootView();
-            rootView.setOnTouchListener((v, event) -> {
-                if (characterView.getWidth() == 0) return false;
+        rootView.setOnTouchListener((v, event) -> {
+            if (characterView.getWidth() == 0) return false;
 
         // Karakterin ekrandaki merkez koordinatları
-        int[] loc = new int[2];
+            int[] loc = new int[2];
             characterView.getLocationOnScreen(loc);
-                float charCX = loc[0] + characterView.getWidth()  * 0.5f;
-                float charCY = loc[1] + characterView.getHeight() * 0.5f;
+            float charCX = loc[0] + characterView.getWidth()  * 0.5f;
+            float charCY = loc[1] + characterView.getHeight() * 0.5f;
 
         // Normalize et: -1..1
-        float normX = (event.getRawX() - charCX) / (rootView.getWidth()  * 0.45f);
-        float normY = (event.getRawY() - charCY) / (rootView.getHeight() * 0.45f);
+            float normX = (event.getRawX() - charCX) / (rootView.getWidth()  * 0.45f);
+            float normY = (event.getRawY() - charCY) / (rootView.getHeight() * 0.45f);
 
         // Sınırla
-         normX = Math.max(-1f, Math.min(1f, normX));
-        normY = Math.max(-1f, Math.min(1f, normY));
+            normX = Math.max(-1f, Math.min(1f, normX));
+            normY = Math.max(-1f, Math.min(1f, normY));
 
-        characterView.updateGaze(normX, normY);
-        return false;
-    });
+            characterView.updateGaze(normX, normY);
+            return false;
+        });
         // ── GİRİŞ YAP ──
         btnLogin.setOnClickListener(v -> {
             String email = inputEmail.getText().toString().trim();
