@@ -17,7 +17,6 @@ public class LoginActivity extends AppCompatActivity {
     private ImageButton   btnTogglePassword;
     private View          btnLogin, btnRegister;
     private TextView      loginError;
-    private SceneManager  sceneManager;
 
     private SupabaseAuth auth;
     private boolean      passwordVisible = false;
@@ -38,7 +37,6 @@ public class LoginActivity extends AppCompatActivity {
         setupListeners();
     }
 
-    // ── VIEWS ──
     private void initViews() {
         characterView     = findViewById(R.id.character_view);
         inputEmail        = findViewById(R.id.input_email);
@@ -48,43 +46,26 @@ public class LoginActivity extends AppCompatActivity {
         btnRegister       = findViewById(R.id.btn_register);
         loginError        = findViewById(R.id.login_error);
 
-        sceneManager = new SceneManager(this, characterView);
-        sceneManager.start();
-
-        // characterView'e input referanslarını bağlama
-        characterView.setEmailInput(inputEmail);
-        characterView.setPasswordInput(inputPassword);
+        characterView.startSystem();
     }
 
-    // ── LİSTENERS ──
     private void setupListeners() {
 
-        // ── E-POSTA ODAK ──
         inputEmail.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                characterView.setState(CharacterView.STATE_EMAIL_FOCUS);
-                sceneManager.onEmailFocus();
-            } else {
-                characterView.setState(CharacterView.STATE_IDLE);
-                sceneManager.onEmailBlur();
-            }
-            sceneManager.onUserActivity();
+            if (hasFocus) characterView.setState(CharacterView.STATE_EMAIL_FOCUS);
+            else          characterView.setState(CharacterView.STATE_IDLE);
         });
 
-        // ── ŞİFRE ODAK ──
         inputPassword.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 characterView.setState(passwordVisible
                         ? CharacterView.STATE_PASSWORD_SHOW
                         : CharacterView.STATE_PASSWORD_HIDE);
-                sceneManager.onPasswordFocus();
             } else {
                 characterView.setState(CharacterView.STATE_IDLE);
             }
-            sceneManager.onUserActivity();
         });
 
-        // ── ŞİFRE GÖSTER / GİZLE ──
         btnTogglePassword.setOnClickListener(v -> {
             passwordVisible = !passwordVisible;
             if (passwordVisible) {
@@ -94,8 +75,6 @@ public class LoginActivity extends AppCompatActivity {
                 btnTogglePassword.setImageResource(R.drawable.ic_eye_on);
                 if (inputPassword.hasFocus())
                     characterView.setState(CharacterView.STATE_PASSWORD_SHOW);
-                
-                sceneManager.onPasswordShow();
             } else {
                 inputPassword.setInputType(
                         InputType.TYPE_CLASS_TEXT |
@@ -104,31 +83,24 @@ public class LoginActivity extends AppCompatActivity {
                 if (inputPassword.hasFocus())
                     characterView.setState(CharacterView.STATE_PASSWORD_HIDE);
             }
-            sceneManager.onUserActivity();
             inputPassword.setSelection(inputPassword.getText().length());
         });
 
-        // ── DOKUNMA → GÖZ TAKİBİ ──
         View rootView = getWindow().getDecorView().getRootView();
         rootView.setOnTouchListener((v, event) -> {
             if (characterView.getWidth() == 0) return false;
-
             int[] loc = new int[2];
             characterView.getLocationOnScreen(loc);
             float charCX = loc[0] + characterView.getWidth()  * 0.5f;
             float charCY = loc[1] + characterView.getHeight() * 0.5f;
-
-            float normX = (event.getRawX() - charCX) / (rootView.getWidth()  * 0.45f);
-            float normY = (event.getRawY() - charCY) / (rootView.getHeight() * 0.45f);
-
+            float normX  = (event.getRawX() - charCX) / (rootView.getWidth()  * 0.45f);
+            float normY  = (event.getRawY() - charCY) / (rootView.getHeight() * 0.45f);
             normX = Math.max(-1f, Math.min(1f, normX));
             normY = Math.max(-1f, Math.min(1f, normY));
-
             characterView.updateGaze(normX, normY);
             return false;
         });
 
-        // ── GİRİŞ YAP ──
         btnLogin.setOnClickListener(v -> {
             String email = inputEmail.getText().toString().trim();
             String pass  = inputPassword.getText().toString();
@@ -140,7 +112,6 @@ public class LoginActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         setLoading(false);
                         characterView.setState(CharacterView.STATE_SUCCESS);
-                        sceneManager.onSuccess();
                         new Handler().postDelayed(() -> goToMain(), 700);
                     });
                 }
@@ -149,13 +120,11 @@ public class LoginActivity extends AppCompatActivity {
                         setLoading(false);
                         showError(translateError(msg));
                         characterView.setState(CharacterView.STATE_ERROR);
-                        sceneManager.onError();
                     });
                 }
             });
         });
 
-        // ── KAYIT OL ──
         btnRegister.setOnClickListener(v -> {
             String email = inputEmail.getText().toString().trim();
             String pass  = inputPassword.getText().toString();
@@ -170,7 +139,6 @@ public class LoginActivity extends AppCompatActivity {
                         loginError.setText("Kayit basarili! Simdi giris yapabilirsin.");
                         loginError.setVisibility(View.VISIBLE);
                         characterView.setState(CharacterView.STATE_SUCCESS);
-                        sceneManager.onSuccess();
                     });
                 }
                 @Override public void onError(String msg) {
@@ -178,14 +146,12 @@ public class LoginActivity extends AppCompatActivity {
                         setLoading(false);
                         showError(translateError(msg));
                         characterView.setState(CharacterView.STATE_ERROR);
-                        sceneManager.onError();
                     });
                 }
             });
         });
     }
 
-    // ── YARDIMCILAR ──
     private boolean validate(String email, String pass) {
         if (email.isEmpty() || !email.contains("@")) {
             showError("Gecerli bir e-posta gir");
@@ -221,8 +187,7 @@ public class LoginActivity extends AppCompatActivity {
         if (r.contains("email not confirmed")) return "E-postani dogrula";
         if (r.contains("already registered"))  return "Bu e-posta zaten kayitli";
         if (r.contains("password"))            return "Sifre en az 6 karakter olmali";
-        if (r.contains("baglantihatasi") ||
-            r.contains("connection"))          return "Internet baglantisi yok";
+        if (r.contains("connection"))          return "Internet baglantisi yok";
         return raw;
     }
 
@@ -234,9 +199,6 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (sceneManager != null) {
-            sceneManager.stop();
-        }
-        characterView.stopSystem();
+        if (characterView != null) characterView.stopSystem();
     }
 }
