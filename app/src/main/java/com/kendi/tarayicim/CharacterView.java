@@ -5,11 +5,11 @@ import android.content.Context;
 import android.graphics.*;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 
 public class CharacterView extends View {
 
-    // ── DURUMLAR ──
     public static final int STATE_IDLE          = 0;
     public static final int STATE_EMAIL_FOCUS   = 1;
     public static final int STATE_PASSWORD_HIDE = 2;
@@ -17,84 +17,107 @@ public class CharacterView extends View {
 
     private int state = STATE_IDLE;
 
-    // ── GÖZ TAKİBİ ──
-    private float gazeX = 0f, gazeY = 0f;     // hedef
-    private float eyeOffsetX = 0f, eyeOffsetY = 0f; // mevcut
+    // Göz takibi — hedef ve mevcut (smooth interpolation)
+    private float targetGazeX = 0f, targetGazeY = 0f;
+    private float currentGazeX = 0f, currentGazeY = 0f;
 
-    // ── KAPI / GİZLEME ANİMASYONU ──
-    private float coverProgress = 0f; // 0=açık, 1=kapalı
+    // El kapama animasyonu 0=açık 1=kapalı
+    private float handProgress = 0f;
+    // Şifre göster — eller ayrılma 0=kapalı 1=ayrık
+    private float peekProgress = 0f;
+    // Küçük karakterlerin merak animasyonu
+    private float curiousProgress = 0f;
 
-    // ── BOYALAR ──
-    private final Paint bodyPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint eyeWhitePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint eyePupilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint handPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint smallCharPaint= new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint yellowPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint purplePaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint orangePaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // Boyalar
+    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private ValueAnimator coverAnimator;
-    private ValueAnimator eyeAnimator;
+    // Animatörler
+    private ValueAnimator handAnim;
+    private ValueAnimator peekAnim;
+    private ValueAnimator curiousAnim;
 
-    public CharacterView(Context ctx) { super(ctx); init(); }
-    public CharacterView(Context ctx, AttributeSet a) { super(ctx, a); init(); }
+    // Smooth gaze için Runnable
+    private final Runnable gazeUpdater = new Runnable() {
+        @Override public void run() {
+            float dx = targetGazeX - currentGazeX;
+            float dy = targetGazeY - currentGazeY;
+            currentGazeX += dx * 0.12f;
+            currentGazeY += dy * 0.12f;
+            invalidate();
+            if (Math.abs(dx) > 0.5f || Math.abs(dy) > 0.5f) {
+                postDelayed(this, 16);
+            }
+        }
+    };
 
-    private void init() {
-        bodyPaint.setColor(0xFF1A1A1A);
-        eyeWhitePaint.setColor(Color.WHITE);
-        eyePupilPaint.setColor(0xFF111111);
-        handPaint.setColor(0xFF1A1A1A);
-        smallCharPaint.setColor(0xFF2A2A2A);
-        yellowPaint.setColor(0xFFFFD600);
-        purplePaint.setColor(0xFF9C27B0);
-        orangePaint.setColor(0xFFFF6D00);
-    }
+    public CharacterView(Context ctx) { super(ctx); }
+    public CharacterView(Context ctx, AttributeSet a) { super(ctx, a); }
 
     // ── DIŞ API ──
     public void setState(int newState) {
         if (state == newState) return;
+        int old = state;
         state = newState;
-        animateToState();
-    }
 
-    public void setGaze(float x, float y) {
-        gazeX = x;
-        gazeY = y;
-        if (state == STATE_IDLE || state == STATE_EMAIL_FOCUS) {
-            animateEyeToGaze();
+        switch (newState) {
+            case STATE_IDLE:
+                animateHand(0f);
+                animatePeek(0f);
+                animateCurious(0f);
+                break;
+            case STATE_EMAIL_FOCUS:
+                animateHand(0f);
+                animatePeek(0f);
+                animateCurious(1f);
+                break;
+            case STATE_PASSWORD_HIDE:
+                animateHand(1f);
+                animatePeek(0f);
+                animateCurious(0f);
+                break;
+            case STATE_PASSWORD_SHOW:
+                animateHand(1f);
+                animatePeek(1f);
+                animateCurious(0f);
+                break;
         }
     }
 
-    // ── ANİMASYONLAR ──
-    private void animateToState() {
-        float targetCover = (state == STATE_PASSWORD_HIDE) ? 1f : 0f;
-
-        if (coverAnimator != null) coverAnimator.cancel();
-        coverAnimator = ValueAnimator.ofFloat(coverProgress, targetCover);
-        coverAnimator.setDuration(400);
-        coverAnimator.setInterpolator(new OvershootInterpolator(1.2f));
-        coverAnimator.addUpdateListener(a -> {
-            coverProgress = (float) a.getAnimatedValue();
-            invalidate();
-        });
-        coverAnimator.start();
-        invalidate();
+    public void updateGaze(float normX, float normY) {
+        // normX, normY: -1..1 arası normalize edilmiş
+        targetGazeX = normX * 9f;
+        targetGazeY = normY * 6f;
+        removeCallbacks(gazeUpdater);
+        post(gazeUpdater);
     }
 
-    private void animateEyeToGaze() {
-        if (eyeAnimator != null) eyeAnimator.cancel();
-        float[] from = {eyeOffsetX, eyeOffsetY};
-        float[] to   = {gazeX * 6f, gazeY * 4f};
-        eyeAnimator = ValueAnimator.ofFloat(0f, 1f);
-        eyeAnimator.setDuration(120);
-        eyeAnimator.addUpdateListener(a -> {
-            float t = (float) a.getAnimatedValue();
-            eyeOffsetX = from[0] + (to[0] - from[0]) * t;
-            eyeOffsetY = from[1] + (to[1] - from[1]) * t;
-            invalidate();
-        });
-        eyeAnimator.start();
+    // ── ANİMATÖRLER ──
+    private void animateHand(float to) {
+        if (handAnim != null) handAnim.cancel();
+        handAnim = ValueAnimator.ofFloat(handProgress, to);
+        handAnim.setDuration(500);
+        handAnim.setInterpolator(new OvershootInterpolator(0.8f));
+        handAnim.addUpdateListener(a -> { handProgress = (float)a.getAnimatedValue(); invalidate(); });
+        handAnim.start();
+    }
+
+    private void animatePeek(float to) {
+        if (peekAnim != null) peekAnim.cancel();
+        peekAnim = ValueAnimator.ofFloat(peekProgress, to);
+        peekAnim.setDuration(350);
+        peekAnim.setInterpolator(new OvershootInterpolator(1.5f));
+        peekAnim.addUpdateListener(a -> { peekProgress = (float)a.getAnimatedValue(); invalidate(); });
+        peekAnim.start();
+    }
+
+    private void animateCurious(float to) {
+        if (curiousAnim != null) curiousAnim.cancel();
+        curiousAnim = ValueAnimator.ofFloat(curiousProgress, to);
+        curiousAnim.setDuration(400);
+        curiousAnim.setInterpolator(new DecelerateInterpolator());
+        curiousAnim.addUpdateListener(a -> { curiousProgress = (float)a.getAnimatedValue(); invalidate(); });
+        curiousAnim.start();
     }
 
     // ── ÇİZİM ──
@@ -102,142 +125,225 @@ public class CharacterView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float w = getWidth(), h = getHeight();
-        float cx = w * 0.5f;
+        float cx = w / 2f;
 
-        // Küçük karakterler (üstten alta: sarı, mor, turuncu)
-        float smallY = h * 0.08f;
-        float smallSize = w * 0.18f;
-        float smallSpacing = h * 0.14f;
-
-        float smallAlpha = 1f - coverProgress * 0.6f;
-        yellowPaint.setAlpha((int)(255 * smallAlpha));
-        purplePaint.setAlpha((int)(255 * smallAlpha));
-        orangePaint.setAlpha((int)(255 * smallAlpha));
-
-        // Sarı karakter
-        drawSmallChar(canvas, cx, smallY + smallSize * 0.5f, smallSize, yellowPaint);
-        // Mor karakter
-        drawSmallChar(canvas, cx, smallY + smallSpacing + smallSize * 0.5f, smallSize, purplePaint);
-        // Turuncu karakter
-        drawSmallChar(canvas, cx, smallY + smallSpacing * 2f + smallSize * 0.5f, smallSize, orangePaint);
-
-        // Ana büyük karakter
-        float mainCY   = h * 0.72f;
-        float mainSize = w * 0.72f;
-
-        // Gizleme animasyonu: yukarı fırlama
-        float bodyLift = coverProgress * h * 0.28f;
-        canvas.save();
-        canvas.translate(0, -bodyLift);
-        drawMainCharacter(canvas, cx, mainCY, mainSize);
-        canvas.restore();
+        drawSmallCharacters(canvas, w, h, cx);
+        drawMainCharacter(canvas, w, h, cx);
     }
 
-    private void drawSmallChar(Canvas canvas, float cx, float cy, float size, Paint paint) {
-        // Yuvarlak gövde
-        RectF body = new RectF(cx - size * 0.5f, cy - size * 0.5f,
-                cx + size * 0.5f, cy + size * 0.5f);
-        canvas.drawRoundRect(body, size * 0.4f, size * 0.4f, paint);
+    // ── KÜÇÜK KARAKTERLER ──
+    private void drawSmallCharacters(Canvas canvas, float w, float h, float cx) {
+        float size   = w * 0.17f;
+        float startY = h * 0.04f + size;
+        float gap    = h * 0.135f;
 
-        // Küçük beyaz gözler
-        float eyeR = size * 0.12f;
-        float eyeY = cy - size * 0.05f;
-        eyeWhitePaint.setAlpha(200);
-        canvas.drawCircle(cx - size * 0.18f, eyeY, eyeR, eyeWhitePaint);
-        canvas.drawCircle(cx + size * 0.18f, eyeY, eyeR, eyeWhitePaint);
+        int[][] colors = {
+            {0xFFFFD600, 0xFFFFEB3B}, // sarı
+            {0xFF7B1FA2, 0xFF9C27B0}, // mor
+            {0xFFE65100, 0xFFFF6D00}  // turuncu
+        };
 
-        // Küçük pupil
-        eyePupilPaint.setAlpha(200);
-        float pupilR = eyeR * 0.5f;
-        canvas.drawCircle(cx - size * 0.18f, eyeY, pupilR, eyePupilPaint);
-        canvas.drawCircle(cx + size * 0.18f, eyeY, pupilR, eyePupilPaint);
-    }
-
-    private void drawMainCharacter(Canvas canvas, float cx, float cy, float size) {
-        float halfW = size * 0.5f;
-        float halfH = size * 0.42f;
-
-        // Gövde
-        RectF body = new RectF(cx - halfW, cy - halfH, cx + halfW, cy + halfH * 0.9f);
-        canvas.drawRoundRect(body, size * 0.35f, size * 0.35f, bodyPaint);
-
-        if (state == STATE_PASSWORD_HIDE || coverProgress > 0.05f) {
-            drawCoveringHands(canvas, cx, cy, size);
-        } else {
-            drawEyes(canvas, cx, cy, size);
+        for (int i = 0; i < 3; i++) {
+            float cy = startY + gap * i;
+            // Merak animasyonu: email focus'ta biraz öne eğiliyorlar
+            float lean = curiousProgress * h * 0.018f * (i + 1);
+            drawSmallChar(canvas, cx, cy + lean, size, colors[i][0], colors[i][1]);
         }
     }
 
-    private void drawEyes(Canvas canvas, float cx, float cy, float size) {
-        float eyeSpacing = size * 0.22f;
-        float eyeY = cy - size * 0.05f;
-        float eyeRW = size * 0.16f;
-        float eyeRH = size * 0.20f;
+    private void drawSmallChar(Canvas canvas, float cx, float cy,
+                                float size, int colorDark, int colorLight) {
+        // Gölge
+        shadowPaint.setColor(0x22000000);
+        shadowPaint.setMaskFilter(new BlurMaskFilter(size * 0.3f, BlurMaskFilter.Blur.NORMAL));
+        canvas.drawCircle(cx, cy + size * 0.15f, size * 0.52f, shadowPaint);
 
-        // Sol göz beyazı
-        RectF leftEye = new RectF(cx - eyeSpacing - eyeRW, eyeY - eyeRH,
-                cx - eyeSpacing + eyeRW, eyeY + eyeRH);
-        canvas.drawOval(leftEye, eyeWhitePaint);
+        // Gövde — gradient
+        p.setShader(new RadialGradient(cx, cy - size * 0.1f, size * 0.7f,
+                colorLight, colorDark, Shader.TileMode.CLAMP));
+        p.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(cx, cy, size * 0.5f, p);
+        p.setShader(null);
 
-        // Sağ göz beyazı
-        RectF rightEye = new RectF(cx + eyeSpacing - eyeRW, eyeY - eyeRH,
-                cx + eyeSpacing + eyeRW, eyeY + eyeRH);
-        canvas.drawOval(rightEye, eyeWhitePaint);
+        // Kulaklar
+        p.setColor(colorDark);
+        canvas.drawCircle(cx - size * 0.38f, cy - size * 0.3f, size * 0.14f, p);
+        canvas.drawCircle(cx + size * 0.38f, cy - size * 0.3f, size * 0.14f, p);
 
-        // Pupiller — gaze takibi
-        float pupilR = eyeRW * 0.52f;
-        float maxOffset = eyeRW - pupilR - 2f;
-        float ox = Math.max(-maxOffset, Math.min(maxOffset, eyeOffsetX));
-        float oy = Math.max(-maxOffset * 0.7f, Math.min(maxOffset * 0.7f, eyeOffsetY));
+        // Göz beyazları
+        float eyeRW = size * 0.14f, eyeRH = size * 0.16f;
+        float eyeY  = cy - size * 0.06f;
+        p.setColor(Color.WHITE);
+        canvas.drawOval(cx - size*0.22f - eyeRW, eyeY - eyeRH,
+                        cx - size*0.22f + eyeRW, eyeY + eyeRH, p);
+        canvas.drawOval(cx + size*0.22f - eyeRW, eyeY - eyeRH,
+                        cx + size*0.22f + eyeRW, eyeY + eyeRH, p);
 
-        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + oy, pupilR, eyePupilPaint);
-        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + oy, pupilR, eyePupilPaint);
+        // Pupiller — merak animasyonunda aşağı kayıyor
+        float pupilDY = curiousProgress * eyeRH * 0.5f;
+        p.setColor(0xFF222222);
+        float pr = eyeRW * 0.5f;
+        canvas.drawCircle(cx - size*0.22f, eyeY + pupilDY, pr, p);
+        canvas.drawCircle(cx + size*0.22f, eyeY + pupilDY, pr, p);
 
-        // Parlama noktası
-        Paint shinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        shinePaint.setColor(Color.WHITE);
-        float shineR = pupilR * 0.3f;
-        canvas.drawCircle(cx - eyeSpacing + ox + pupilR * 0.3f, eyeY + oy - pupilR * 0.35f,
-                shineR, shinePaint);
-        canvas.drawCircle(cx + eyeSpacing + ox + pupilR * 0.3f, eyeY + oy - pupilR * 0.35f,
-                shineR, shinePaint);
+        // Parlaklık
+        p.setColor(Color.WHITE);
+        canvas.drawCircle(cx - size*0.22f + pr*0.4f, eyeY + pupilDY - pr*0.4f, pr*0.32f, p);
+        canvas.drawCircle(cx + size*0.22f + pr*0.4f, eyeY + pupilDY - pr*0.4f, pr*0.32f, p);
     }
 
-    private void drawCoveringHands(Canvas canvas, float cx, float cy, float size) {
-        float progress = coverProgress;
+    // ── ANA KARAKTER ──
+    private void drawMainCharacter(Canvas canvas, float w, float h, float cx) {
+        float bw   = w * 0.78f;
+        float bh   = h * 0.38f;
+        float by   = h * 0.72f;
 
-        // Eller yukarıdan inerek gözleri kapatıyor
-        float handY = cy - size * 0.30f - (1f - progress) * size * 0.5f;
-        float handW = size * 0.38f;
-        float handH = size * 0.22f;
+        // Gölge
+        shadowPaint.setColor(0x33000000);
+        shadowPaint.setMaskFilter(new BlurMaskFilter(bw * 0.2f, BlurMaskFilter.Blur.NORMAL));
+        canvas.drawOval(cx - bw*0.45f, by + bh*0.35f,
+                        cx + bw*0.45f, by + bh*0.55f, shadowPaint);
+
+        // Gövde — koyu gradient
+        RectF body = new RectF(cx - bw/2f, by - bh/2f, cx + bw/2f, by + bh/2f);
+        p.setShader(new RadialGradient(cx, by - bh*0.1f, bw * 0.7f,
+                0xFF2C2C2C, 0xFF111111, Shader.TileMode.CLAMP));
+        p.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(body, bw * 0.38f, bw * 0.38f, p);
+        p.setShader(null);
+
+        // Kulaklar
+        p.setColor(0xFF1A1A1A);
+        canvas.drawCircle(cx - bw*0.42f, by - bh*0.28f, bw*0.1f, p);
+        canvas.drawCircle(cx + bw*0.42f, by - bh*0.28f, bw*0.1f, p);
+
+        // Gözler ya da eller
+        if (handProgress < 0.02f) {
+            drawMainEyes(canvas, cx, by, bw, bh);
+        } else if (peekProgress > 0.05f) {
+            drawPeekingEyes(canvas, cx, by, bw, bh);
+            drawHands(canvas, cx, by, bw, bh);
+        } else {
+            drawHands(canvas, cx, by, bw, bh);
+        }
+    }
+
+    private void drawMainEyes(Canvas canvas, float cx, float cy, float bw, float bh) {
+        float eyeSpacing = bw * 0.21f;
+        float eyeY  = cy - bh * 0.05f;
+        float erw   = bw * 0.155f;
+        float erh   = bw * 0.19f;
+
+        // Beyazlar
+        p.setColor(Color.WHITE);
+        p.setStyle(Paint.Style.FILL);
+        canvas.drawOval(cx-eyeSpacing-erw, eyeY-erh, cx-eyeSpacing+erw, eyeY+erh, p);
+        canvas.drawOval(cx+eyeSpacing-erw, eyeY-erh, cx+eyeSpacing+erw, eyeY+erh, p);
+
+        // Gaze sınırlandırma
+        float maxX = erw  * 0.42f;
+        float maxY = erh  * 0.38f;
+        float ox = Math.max(-maxX, Math.min(maxX, currentGazeX));
+        float oy = Math.max(-maxY, Math.min(maxY, currentGazeY));
+
+        // Pupiller
+        float pr = erw * 0.54f;
+        p.setColor(0xFF1A1A1A);
+        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + oy, pr, p);
+        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + oy, pr, p);
+
+        // İç parlak nokta
+        p.setColor(Color.WHITE);
+        canvas.drawCircle(cx - eyeSpacing + ox + pr*0.32f, eyeY + oy - pr*0.36f, pr*0.28f, p);
+        canvas.drawCircle(cx + eyeSpacing + ox + pr*0.32f, eyeY + oy - pr*0.36f, pr*0.28f, p);
+
+        // Mavi iris halkası
+        p.setColor(0x554D9EFF);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(pr * 0.25f);
+        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + oy, pr * 0.72f, p);
+        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + oy, pr * 0.72f, p);
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawHands(Canvas canvas, float cx, float cy, float bw, float bh) {
+        // Eller yanlarda başlayıp ortaya doğru kayıyor
+        float hw    = bw * 0.36f;
+        float hh    = bh * 0.24f;
+        float handY = cy - bh * 0.06f;
+
+        // handProgress: 0=yanda, 1=gözlerin önünde
+        float leftStartX  = cx - bw * 0.55f;
+        float leftEndX    = cx - hw * 0.55f;
+        float rightStartX = cx + bw * 0.55f;
+        float rightEndX   = cx + hw * 0.55f;
+
+        float lx = leftStartX  + (leftEndX  - leftStartX)  * handProgress;
+        float rx = rightStartX + (rightEndX - rightStartX) * handProgress;
+
+        // Sol el gölgesi
+        shadowPaint.setMaskFilter(new BlurMaskFilter(hh*0.4f, BlurMaskFilter.Blur.NORMAL));
+        shadowPaint.setColor(0x44000000);
+        canvas.drawRoundRect(lx - hw, handY - hh + hh*0.1f,
+                             lx,      handY + hh + hh*0.1f, hh*0.55f, hh*0.55f, shadowPaint);
+        canvas.drawRoundRect(rx,      handY - hh + hh*0.1f,
+                             rx + hw, handY + hh + hh*0.1f, hh*0.55f, hh*0.55f, shadowPaint);
 
         // Sol el
-        RectF leftHand = new RectF(cx - handW * 1.1f, handY - handH,
-                cx - handW * 0.05f, handY + handH);
-        canvas.drawRoundRect(leftHand, handH * 0.6f, handH * 0.6f, handPaint);
+        p.setShader(new LinearGradient(lx - hw, handY - hh, lx, handY + hh,
+                0xFF2C2C2C, 0xFF111111, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(lx - hw, handY - hh, lx, handY + hh, hh*0.55f, hh*0.55f, p);
 
         // Sağ el
-        RectF rightHand = new RectF(cx + handW * 0.05f, handY - handH,
-                cx + handW * 1.1f, handY + handH);
-        canvas.drawRoundRect(rightHand, handH * 0.6f, handH * 0.6f, handPaint);
+        p.setShader(new LinearGradient(rx, handY - hh, rx + hw, handY + hh,
+                0xFF111111, 0xFF2C2C2C, Shader.TileMode.CLAMP));
+        canvas.drawRoundRect(rx, handY - hh, rx + hw, handY + hh, hh*0.55f, hh*0.55f, p);
+        p.setShader(null);
 
-        // Şifre gösteriliyorsa eller biraz ayrılıp gözler arasından bakıyor
-        if (state == STATE_PASSWORD_SHOW) {
-            float peekOffset = size * 0.08f;
-            leftHand.offset(-peekOffset, 0);
-            rightHand.offset(peekOffset, 0);
-            canvas.drawRoundRect(leftHand,  handH * 0.6f, handH * 0.6f, handPaint);
-            canvas.drawRoundRect(rightHand, handH * 0.6f, handH * 0.6f, handPaint);
-
-            // Aralıktan bakan gözler
-            Paint peekEye = new Paint(Paint.ANTI_ALIAS_FLAG);
-            peekEye.setColor(Color.WHITE);
-            float peekEyeR = size * 0.09f;
-            canvas.drawCircle(cx - size * 0.18f, handY, peekEyeR, peekEye);
-            canvas.drawCircle(cx + size * 0.18f, handY, peekEyeR, peekEye);
-            eyePupilPaint.setAlpha(255);
-            canvas.drawCircle(cx - size * 0.18f, handY, peekEyeR * 0.5f, eyePupilPaint);
-            canvas.drawCircle(cx + size * 0.18f, handY, peekEyeR * 0.5f, eyePupilPaint);
+        // Parmak çizgileri
+        p.setColor(0xFF333333);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(2f);
+        float fingerSpacing = hw * 0.28f;
+        for (int i = 1; i <= 2; i++) {
+            float fx = lx - hw*0.2f - fingerSpacing * i;
+            canvas.drawLine(fx, handY - hh*0.5f, fx, handY + hh*0.5f, p);
+            float frx = rx + hw*0.2f + fingerSpacing * i;
+            canvas.drawLine(frx, handY - hh*0.5f, frx, handY + hh*0.5f, p);
         }
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawPeekingEyes(Canvas canvas, float cx, float cy, float bw, float bh) {
+        float handY  = cy - bh * 0.06f;
+        float hh     = bh * 0.24f;
+        // Gözler eller arasındaki boşluktan bakıyor
+        float peekY  = handY - hh * (0.1f + peekProgress * 0.5f);
+        float peekER = bw * 0.085f * peekProgress;
+
+        if (peekER < 4f) return;
+
+        float eyeSpacing = bw * 0.21f;
+        p.setColor(Color.WHITE);
+        canvas.drawCircle(cx - eyeSpacing, peekY, peekER, p);
+        canvas.drawCircle(cx + eyeSpacing, peekY, peekER, p);
+
+        p.setColor(0xFF1A1A1A);
+        float pr = peekER * 0.55f;
+        canvas.drawCircle(cx - eyeSpacing, peekY, pr, p);
+        canvas.drawCircle(cx + eyeSpacing, peekY, pr, p);
+
+        p.setColor(Color.WHITE);
+        canvas.drawCircle(cx - eyeSpacing + pr*0.3f, peekY - pr*0.3f, pr*0.28f, p);
+        canvas.drawCircle(cx + eyeSpacing + pr*0.3f, peekY - pr*0.3f, pr*0.28f, p);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        removeCallbacks(gazeUpdater);
+        if (handAnim   != null) handAnim.cancel();
+        if (peekAnim   != null) peekAnim.cancel();
+        if (curiousAnim!= null) curiousAnim.cancel();
     }
 }
