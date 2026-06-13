@@ -328,6 +328,35 @@
                     android:textSize="14sp"/>
             </LinearLayout>
 
+            <!-- Hesap -->
+            <LinearLayout
+                android:id="@+id/menu_account"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/menu_item_bg"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_nav_account"
+                    android:layout_marginEnd="14dp"/>
+
+                <TextView
+                    android:id="@+id/menu_account_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Giris Yap"
+                    android:textColor="#CCCCCC"
+                    android:textSize="14sp"/>
+
+            </LinearLayout>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
