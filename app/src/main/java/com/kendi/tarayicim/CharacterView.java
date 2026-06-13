@@ -1,14 +1,21 @@
 package com.kendi.tarayicim;
 
-import android.animation.*;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.*;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.*;
+import java.util.Random;
 
 public class CharacterView extends View {
 
+    // ═══════════════════════════════════════════
+    //  DIŞ STATE (LoginActivity'den tetiklenir)
+    // ═══════════════════════════════════════════
     public static final int STATE_IDLE          = 0;
     public static final int STATE_EMAIL_FOCUS   = 1;
     public static final int STATE_PASSWORD_HIDE = 2;
@@ -16,598 +23,1003 @@ public class CharacterView extends View {
     public static final int STATE_ERROR         = 4;
     public static final int STATE_SUCCESS       = 5;
 
-    private int state = STATE_IDLE;
+    private int formState = STATE_IDLE;
 
-    // ── GAZE ──
+    // ═══════════════════════════════════════════
+    //  KARAKTERLERİN VERİSİ
+    // ═══════════════════════════════════════════
+    private static final int VIGO = 0; // Mor dikdörtgen — ciddi lider
+    private static final int NOX  = 1; // Siyah ince — sinsi meraklı
+    private static final int PUF  = 2; // Turuncu yuvarlak — sakin uysal
+    private static final int ZIP  = 3; // Sarı dikdörtgen — enerjik
+
+    // Her karakterin anlık duygu değerleri
+    private final float[] eyebrow    = {0f, 0f, 0f, 0f}; // -1..1
+    private final float[] mouthCurve = {.3f,.3f,.3f,.3f}; // -1..1
+    private final float[] eyeOpen    = {1f, 1f, 1f, 1f};  // 0..1.3
+
+    // Pozisyon offsetleri (ev konumundan sapma)
+    private final float[] posX = {0f, 0f, 0f, 0f};
+    private final float[] posY = {0f, 0f, 0f, 0f};
+    private final float[] velX = {0f, 0f, 0f, 0f};
+    private final float[] velY = {0f, 0f, 0f, 0f};
+
+    // Özel animasyon parametreleri
+    private float pufTurnAngle  = 0f;   // 0=öne, 1=arka (şifreyi görmez)
+    private float noxPeekLean   = 0f;   // Nox öne eğilme
+    private float noxArmReach   = 0f;   // Nox'un uzanan kolu
+    private float vigoArmRaise  = 0f;   // Vigo'nun dur kolu
+    private float zipArmRaise   = 0f;   // Zip'in dur kolu
+    private float noxSurrenderY = 0f;   // Nox teslim elleri
+    private float vigoNodAngle  = 0f;   // Vigo baş sallama
+    private float noxPokeArm    = 0f;   // Nox'un Puf'u dürtme kolu
+    private float pufRollAngle  = 0f;   // Puf sallanma açısı
+    private float zipJumpBonus  = 0f;   // Zip'in ekstra zıplaması
+    private float groupShock    = 0f;   // Toplu irkilme
+    private float successWave   = 0f;   // Başarı dalga fazı
+
+    // Uyku
+    private float[] sleepZ      = {0f, 0f, 0f, 0f};
+
+    // Göz takibi
     private float targetGX = 0f, targetGY = 0f;
     private float curGX    = 0f, curGY    = 0f;
 
-    // ── ANİMASYON DEĞERLERİ ──
-    private float idleBob       = 0f;   // sürekli sallanma
-    private float leanForward   = 0f;   // öne eğilme (email)
-    private float orangeTurn    = 0f;   // turuncu arkasını döner (0=öne, 1=arka)
-    private float blockerRaise  = 0f;   // mor+sarı engel kaldırır
-    private float peekLean      = 0f;   // siyah yan bakar
-    private float shockScale    = 1f;   // hata irkilmesi
-    private float jumpY         = 0f;   // başarı zıplar
-    private float eyebrowRaise  = 0f;   // kaş kaldırma
+    // Boşta sallanma
+    private float bobPhase = 0f;
 
-    // ── BRAIN CALLBACK DEĞİŞKENLERİ ──
-    private final java.util.Map<CharacterBrain.CharId, CharacterBrain.State> brainStates
-        = new java.util.HashMap<>();
+    // Dokunma
+    private int   draggedChar = -1;
+    private float dragStartX, dragStartY;
+    private float lastTouchX, lastTouchY;
+    private long  lastTouchTime;
 
-    private float vigoNodProgress  = 0f;
-    private float noxPokeProgress  = 0f;
-    private float pufRollAngle     = 0f;
-    private float zipJumpExtra     = 0f;
-    private float pufTurnAngle     = 0f; // 0=öne, 1=arka
-    private float noxPeekProgress  = 0f;
+    // ═══════════════════════════════════════════
+    //  BOYALAR
+    // ═══════════════════════════════════════════
+    private final Paint p   = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sp  = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tp  = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private float vigoEyebrow = 0f, vigoMouth = 0.3f;
-    private float noxEyebrow  = 0f, noxMouth  = 0.3f;
-    private float pufEyebrow  = 0f, pufMouth  = 0.3f;
-    private float zipEyebrow  = 0f, zipMouth  = 0.3f;
+    // ═══════════════════════════════════════════
+    //  OTONOM SİSTEM
+    // ═══════════════════════════════════════════
+    private final Handler    h   = new Handler(Looper.getMainLooper());
+    private final Random     rnd = new Random();
+    private boolean          autonomousRunning = false;
+    private long             idleMs = 0;
+    private long             lastActivityMs = 0;
 
-    private final Paint p  = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint sp = new Paint(Paint.ANTI_ALIAS_FLAG); // shadow
-
-    // Animatörler
-    private ValueAnimator idleAnim;
-    private AnimatorSet   stateAnimSet;
-
-    // Gaze smooth
-    private final Runnable gazeRunner = new Runnable() {
+    // ═══════════════════════════════════════════
+    //  RENDER LOOP
+    // ═══════════════════════════════════════════
+    private final Runnable renderLoop = new Runnable() {
         @Override public void run() {
-            curGX += (targetGX - curGX) * 0.14f;
-            curGY += (targetGY - curGY) * 0.14f;
+            if (!autonomousRunning) return;
+            bobPhase += 0.045f;
+            if (bobPhase > Math.PI * 2) bobPhase -= (float)(Math.PI * 2);
+
+            // Smooth gaze
+            curGX += (targetGX - curGX) * 0.13f;
+            curGY += (targetGY - curGY) * 0.13f;
+
+            // Fizik adımı
+            physicsStep();
+
+            // Boşta kalma sayacı
+            long now = System.currentTimeMillis();
+            idleMs = now - lastActivityMs;
+
             invalidate();
-            if (Math.abs(targetGX-curGX)>0.3f || Math.abs(targetGY-curGY)>0.3f)
-                postDelayed(this, 16);
+            h.postDelayed(this, 16);
         }
     };
 
-    public CharacterView(Context c) { super(c); init(); }
-    public CharacterView(Context c, AttributeSet a) { super(c, a); init(); }
+    // ═══════════════════════════════════════════
+    //  KURUCU
+    // ═══════════════════════════════════════════
+    public CharacterView(Context ctx) { super(ctx); init(); }
+    public CharacterView(Context ctx, AttributeSet a) { super(ctx, a); init(); }
 
     private void init() {
-        sp.setColor(0x30000000);
-        startIdleBob();
+        sp.setColor(0x28000000);
+        tp.setColor(Color.WHITE);
+        tp.setTextSize(28f);
+        tp.setFakeBoldText(true);
+        lastActivityMs = System.currentTimeMillis();
+        setOnTouchListener(this::handleTouch);
     }
 
-    // ── SÜREKLİ BOB ANİMASYONU ──
-    private void startIdleBob() {
-        idleAnim = ValueAnimator.ofFloat(0f, (float)(Math.PI * 2));
-        idleAnim.setDuration(2800);
-        idleAnim.setRepeatCount(ValueAnimator.INFINITE);
-        idleAnim.setInterpolator(new LinearInterpolator());
-        idleAnim.addUpdateListener(a -> {
-            idleBob = (float) a.getAnimatedValue();
-            invalidate();
-        });
-        idleAnim.start();
+    // ═══════════════════════════════════════════
+    //  BAŞLAT / DURDUR
+    // ═══════════════════════════════════════════
+    public void startSystem() {
+        if (autonomousRunning) return;
+        autonomousRunning = true;
+        h.post(renderLoop);
+        scheduleAutonomousEvents();
     }
 
-    // ── DIŞ API ──
-    public void setState(int newState) {
-        if (state == newState) return;
-        state = newState;
-        if (stateAnimSet != null) stateAnimSet.cancel();
-        switch (newState) {
-            case STATE_IDLE:          animateIdle();        break;
-            case STATE_EMAIL_FOCUS:   animateEmailFocus();  break;
-            case STATE_PASSWORD_HIDE: animatePassHide();    break;
-            case STATE_PASSWORD_SHOW: animatePassShow();    break;
-            case STATE_ERROR:         animateError();       break;
-            case STATE_SUCCESS:       animateSuccess();     break;
+    public void stopSystem() {
+        autonomousRunning = false;
+        h.removeCallbacksAndMessages(null);
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        stopSystem();
+    }
+
+    // ═══════════════════════════════════════════
+    //  DIŞ API — LoginActivity çağırır
+    // ═══════════════════════════════════════════
+    public void setState(int state) {
+        if (formState == state) return;
+        formState = state;
+        notifyActivity();
+
+        switch (state) {
+            case STATE_IDLE:
+                playScene("idle_return");
+                break;
+            case STATE_EMAIL_FOCUS:
+                playScene("email_focus");
+                break;
+            case STATE_PASSWORD_HIDE:
+                playScene("password_hide");
+                break;
+            case STATE_PASSWORD_SHOW:
+                playScene("password_show");
+                break;
+            case STATE_ERROR:
+                playScene("error");
+                break;
+            case STATE_SUCCESS:
+                playScene("success");
+                break;
         }
     }
 
     public void updateGaze(float nx, float ny) {
-        targetGX = nx * 10f;
-        targetGY = ny * 6f;
-        removeCallbacks(gazeRunner);
-        post(gazeRunner);
+        targetGX = nx * 11f;
+        targetGY = ny * 7f;
+        notifyActivity();
     }
 
-    // ── BRAIN CALLBACK'LERİ ──
-    public void onBrainStateChanged(CharacterBrain.CharId id, CharacterBrain.State state) {
-        brainStates.put(id, state);
-        switch (id) {
-            case VIGO:
-                if (state == CharacterBrain.State.BLOCKING)
-                    animateFloat(0f, 1f, 400, v -> blockerRaise = v);
-                else if (state == CharacterBrain.State.IDLE || state == CharacterBrain.State.CURIOUS)
-                    animateFloat(blockerRaise, 0f, 300, v -> blockerRaise = v);
+    // ═══════════════════════════════════════════
+    //  SAHNELER
+    // ═══════════════════════════════════════════
+    private void playScene(String sceneId) {
+        switch (sceneId) {
+
+            // ── IDLE'A DÖNÜŞ ──
+            case "idle_return":
+                anim(pufTurnAngle, 0f,  500, new OvershootInterpolator(), v -> pufTurnAngle  = v);
+                anim(noxPeekLean,  0f,  400, new DecelerateInterpolator(),v -> noxPeekLean   = v);
+                anim(noxArmReach,  0f,  350, new DecelerateInterpolator(),v -> noxArmReach   = v);
+                anim(vigoArmRaise, 0f,  350, new DecelerateInterpolator(),v -> vigoArmRaise  = v);
+                anim(zipArmRaise,  0f,  350, new DecelerateInterpolator(),v -> zipArmRaise   = v);
+                anim(noxSurrenderY,0f,  300, new DecelerateInterpolator(),v -> noxSurrenderY = v);
+                setEmotion(VIGO, 0f,  0.3f, 1f,  400);
+                setEmotion(NOX,  0f,  0.3f, 1f,  400);
+                setEmotion(PUF,  0f,  0.3f, 1f,  400);
+                setEmotion(ZIP,  0f,  0.3f, 1f,  400);
                 break;
-            case NOX:
-                if (state == CharacterBrain.State.SNEAKING)
-                    animateFloat(peekLean, 1f, 500, v -> peekLean = v);
-                else if (state == CharacterBrain.State.SURRENDERING
-                      || state == CharacterBrain.State.IDLE)
-                    animateFloat(peekLean, 0f, 350, v -> peekLean = v);
+
+            // ── EMAIL ODAK ──
+            case "email_focus":
+                // Zip heyecanlanır, Vigo onu susturur
+                setEmotion(ZIP, 0.8f, 0.9f, 1.2f, 250);
+                anim(0f, 1f, 250, new OvershootInterpolator(2f), v -> zipJumpBonus = v);
+                h.postDelayed(() -> {
+                    anim(zipJumpBonus, 0f, 300, new DecelerateInterpolator(), v -> zipJumpBonus = v);
+                    setEmotion(VIGO, 0.3f, 0.0f, 1f, 200);
+                    anim(0f, 0.6f, 200, new OvershootInterpolator(), v -> vigoArmRaise = v);
+                    h.postDelayed(() -> {
+                        anim(vigoArmRaise, 0f, 300, new DecelerateInterpolator(), v -> vigoArmRaise = v);
+                        setEmotion(ZIP, 0f, 0.2f, 1f, 300);
+                        // Hepsi öne eğilip forma bakar
+                        setEmotion(NOX,  0.5f, 0.1f, 1.1f, 300);
+                        setEmotion(PUF,  0.3f, 0.2f, 1f,   300);
+                        setEmotion(VIGO, 0.2f, 0.1f, 1f,   300);
+                    }, 700);
+                }, 400);
                 break;
-            case PUF:
-                if (state == CharacterBrain.State.STARTLED)
-                    animateFloat(0f, 1f, 100, v -> shockScale = 1f + v * 0.15f);
-                else
-                    animateFloat(shockScale, 1f, 300, v -> shockScale = v);
+
+            // ── ŞİFRE GİZLE ──
+            case "password_hide":
+                // Puf arkasını döner, sevimli şekilde
+                anim(pufTurnAngle, 1f, 600, new OvershootInterpolator(0.6f), v -> pufTurnAngle = v);
+                setEmotion(PUF, 0f, 0.5f, 1f, 300); // Puf mutlu
+                h.postDelayed(() -> {
+                    // Nox meraklanıp uzanmaya başlar
+                    setEmotion(NOX, 0.9f, 0.1f, 0.8f, 200);
+                    anim(0f, 0.7f, 500, new OvershootInterpolator(0.8f), v -> noxPeekLean = v);
+                    anim(0f, 0.5f, 600, new OvershootInterpolator(),     v -> noxArmReach = v);
+                    h.postDelayed(() -> {
+                        // Vigo fark eder, dur der
+                        setEmotion(VIGO, 0.5f, -0.2f, 1f, 200);
+                        anim(0f, 1f, 300, new OvershootInterpolator(1.5f), v -> vigoArmRaise = v);
+                        // Zip de katılır
+                        h.postDelayed(() -> {
+                            anim(0f, 0.8f, 350, new OvershootInterpolator(1.2f), v -> zipArmRaise = v);
+                            setEmotion(ZIP, 0.4f, -0.1f, 1f, 200);
+                            // Nox teslim olur
+                            h.postDelayed(() -> {
+                                anim(noxArmReach,  0f, 400, new DecelerateInterpolator(), v -> noxArmReach  = v);
+                                anim(noxPeekLean,  0f, 400, new OvershootInterpolator(),  v -> noxPeekLean  = v);
+                                anim(0f, 1f, 300, new OvershootInterpolator(), v -> noxSurrenderY = v);
+                                setEmotion(NOX, 0.2f, 0.3f, 1f, 300);
+                                h.postDelayed(() ->
+                                    anim(noxSurrenderY, 0f, 400, new DecelerateInterpolator(), v -> noxSurrenderY = v),
+                                    1000);
+                            }, 600);
+                        }, 300);
+                    }, 700);
+                }, 400);
                 break;
-            case ZIP:
-                if (state == CharacterBrain.State.CELEBRATING)
-                    animateFloat(0f, 1f, 300, v -> zipJumpExtra = v);
-                else
-                    animateFloat(zipJumpExtra, 0f, 400, v -> zipJumpExtra = v);
+
+            // ── ŞİFRE GÖSTER ──
+            case "password_show":
+                // Nox çaktırmadan tekrar uzanır, bu sefer hızlı
+                setEmotion(NOX, 1f, 0.2f, 0.7f, 150);
+                anim(noxPeekLean, 0.9f, 350, new OvershootInterpolator(1.5f), v -> noxPeekLean = v);
+                anim(noxArmReach, 0.8f, 400, new OvershootInterpolator(),     v -> noxArmReach = v);
+                // Vigo ve Zip panikler
+                h.postDelayed(() -> {
+                    setEmotion(VIGO, 0.8f, -0.3f, 1.2f, 150);
+                    setEmotion(ZIP,  0.8f, -0.2f, 1.2f, 150);
+                    anim(vigoArmRaise, 1f, 200, new OvershootInterpolator(2f), v -> vigoArmRaise = v);
+                    anim(zipArmRaise,  1f, 200, new OvershootInterpolator(2f), v -> zipArmRaise  = v);
+                }, 200);
+                break;
+
+            // ── HATA ──
+            case "error":
+                // Toplu irkilme
+                anim(0f, 1f, 120, new AccelerateInterpolator(), v -> groupShock = v);
+                setEmotion(VIGO, 1f, -0.5f, 1.3f, 100);
+                setEmotion(NOX,  1f, -0.3f, 1.3f, 100);
+                setEmotion(PUF,  1f, -0.4f, 1.3f, 80);
+                setEmotion(ZIP,  1f, -0.6f, 1.4f, 80);
+                h.postDelayed(() -> {
+                    anim(groupShock, 0f, 400, new BounceInterpolator(), v -> groupShock = v);
+                    // Vigo Nox'a bakar — "senin yüzünden" ifadesi
+                    setEmotion(VIGO, 0.3f, -0.4f, 1f, 300);
+                    h.postDelayed(() -> {
+                        // Nox suçsuz görünmeye çalışır
+                        setEmotion(NOX, 0f, 0.1f, 0.9f, 300);
+                        anim(noxPeekLean, 0f, 300, new DecelerateInterpolator(), v -> noxPeekLean = v);
+                        // Puf güler
+                        setEmotion(PUF, 0.4f, 1f, 1f, 200);
+                        anim(0f, 1f, 200, new OvershootInterpolator(3f), v -> pufRollAngle = v);
+                        h.postDelayed(() -> anim(pufRollAngle, 0f, 300,
+                                new DecelerateInterpolator(), v -> pufRollAngle = v), 250);
+                        // Zip hâlâ şaşkın
+                        setEmotion(ZIP, 0.8f, -0.5f, 1.3f, 200);
+                        h.postDelayed(() -> {
+                            setEmotion(VIGO, 0f, 0.2f, 1f, 400);
+                            setEmotion(NOX,  0f, 0.3f, 1f, 400);
+                            setEmotion(PUF,  0f, 0.3f, 1f, 400);
+                            setEmotion(ZIP,  0f, 0.3f, 1f, 400);
+                        }, 1200);
+                    }, 600);
+                }, 180);
+                break;
+
+            // ── BAŞARI ──
+            case "success":
+                // Zip önce — dalga gibi sırayla
+                setEmotion(ZIP, 1f, 1f, 1.1f, 150);
+                anim(0f, 1f, 250, new OvershootInterpolator(2.5f), v -> zipJumpBonus = v);
+                h.postDelayed(() -> {
+                    anim(zipJumpBonus, 0f, 350, new DecelerateInterpolator(), v -> zipJumpBonus = v);
+                    // Puf döner ve sevinir
+                    anim(pufTurnAngle, 0f, 400, new OvershootInterpolator(), v -> pufTurnAngle = v);
+                    setEmotion(PUF, 0.8f, 1f, 1.1f, 200);
+                }, 200);
+                h.postDelayed(() -> {
+                    setEmotion(VIGO, 0.6f, 0.8f, 1f, 200);
+                    anim(0f, 1f, 300, new OvershootInterpolator(3f), v -> vigoNodAngle = v);
+                    h.postDelayed(() -> anim(vigoNodAngle, 0f, 400,
+                            new DecelerateInterpolator(), v -> vigoNodAngle = v), 320);
+                }, 400);
+                h.postDelayed(() -> {
+                    // Nox cool durmaya çalışır ama zıplar
+                    setEmotion(NOX, 0.5f, 0.7f, 1f, 200);
+                    anim(0f, 0.7f, 300, new OvershootInterpolator(2f), v -> zipJumpBonus = v * 0.6f);
+                    h.postDelayed(() -> anim(zipJumpBonus, 0f, 400,
+                            new DecelerateInterpolator(), v -> zipJumpBonus = v), 320);
+                    // Başarı dalga animasyonu
+                    anim(0f, (float)(Math.PI * 4), 1200,
+                            new LinearInterpolator(), v -> successWave = v);
+                }, 600);
+                break;
+
+            // ── OTONOM SAHNELER ──
+            case "auto_nox_peeks":
+                if (formState != STATE_IDLE) break;
+                setEmotion(NOX, 0.7f, 0.1f, 0.8f, 200);
+                anim(0f, 0.5f, 400, new OvershootInterpolator(), v -> noxPeekLean = v);
+                h.postDelayed(() -> {
+                    setEmotion(VIGO, 0.3f, 0f, 1f, 150);
+                    anim(0f, 0.5f, 250, new OvershootInterpolator(), v -> vigoArmRaise = v);
+                    h.postDelayed(() -> {
+                        anim(noxPeekLean,  0f, 300, new DecelerateInterpolator(), v -> noxPeekLean  = v);
+                        anim(vigoArmRaise, 0f, 350, new DecelerateInterpolator(), v -> vigoArmRaise = v);
+                        setEmotion(NOX,  0f, 0.3f, 1f, 300);
+                        setEmotion(VIGO, 0f, 0.3f, 1f, 300);
+                    }, 800);
+                }, 600);
+                break;
+
+            case "auto_zip_jump_vigo_stare":
+                if (formState != STATE_IDLE) break;
+                setEmotion(ZIP, 0.7f, 0.8f, 1.1f, 150);
+                anim(0f, 1f, 220, new OvershootInterpolator(2f), v -> zipJumpBonus = v);
+                h.postDelayed(() -> {
+                    anim(zipJumpBonus, 0f, 320, new DecelerateInterpolator(), v -> zipJumpBonus = v);
+                    setEmotion(VIGO, 0.2f, -0.2f, 1f, 200);
+                    h.postDelayed(() -> {
+                        setEmotion(ZIP,  0f, 0.1f, 1f, 300);
+                        setEmotion(VIGO, 0f, 0.3f, 1f, 400);
+                    }, 1000);
+                }, 250);
+                break;
+
+            case "auto_puf_sleep":
+                if (formState != STATE_IDLE) break;
+                setEmotion(PUF, -0.3f, 0f, 0.05f, 900);
+                anim(0f, 1f, 800, new DecelerateInterpolator(), v -> sleepZ[PUF] = v);
+                h.postDelayed(() -> {
+                    // Nox dürtür
+                    anim(0f, 1f, 200, new OvershootInterpolator(2f), v -> noxPokeArm = v);
+                    h.postDelayed(() -> {
+                        anim(noxPokeArm, 0f, 250, new DecelerateInterpolator(), v -> noxPokeArm = v);
+                        // Puf irkilir
+                        setEmotion(PUF, 1f, -0.3f, 1.4f, 80);
+                        anim(sleepZ[PUF], 0f, 200, new AccelerateInterpolator(), v -> sleepZ[PUF] = v);
+                        h.postDelayed(() -> {
+                            // Nox güler
+                            setEmotion(NOX, 0.4f, 1f, 1f, 200);
+                            anim(0f, 1f, 200, new OvershootInterpolator(3f), v -> zipJumpBonus = v * 0.4f);
+                            h.postDelayed(() -> {
+                                anim(zipJumpBonus, 0f, 300, new DecelerateInterpolator(), v -> zipJumpBonus = v);
+                                // Puf küser
+                                setEmotion(PUF, -0.4f, -0.5f, 0.9f, 300);
+                                setEmotion(NOX, 0f, 0.3f, 1f, 500);
+                                h.postDelayed(() -> setEmotion(PUF, 0f, 0.3f, 1f, 600), 2000);
+                            }, 250);
+                        }, 300);
+                    }, 1500);
+                }, 2200);
+                break;
+
+            case "auto_nox_zip_argument":
+                if (formState != STATE_IDLE) break;
+                setEmotion(NOX, 0.3f, -0.2f, 1f, 200);
+                setEmotion(ZIP, 0.3f, -0.2f, 1f, 200);
+                h.postDelayed(() -> {
+                    setEmotion(NOX, -0.2f, -0.4f, 0.9f, 250);
+                    setEmotion(ZIP, -0.2f, -0.4f, 0.9f, 250);
+                }, 900);
+                h.postDelayed(() -> {
+                    setEmotion(NOX, 0f, 0.3f, 1f, 500);
+                    setEmotion(ZIP, 0f, 0.3f, 1f, 500);
+                }, 2500);
+                break;
+
+            case "auto_vigo_posture":
+                if (formState != STATE_IDLE) break;
+                anim(0f, 1f, 200, new OvershootInterpolator(), v -> vigoNodAngle = v * 0.3f);
+                h.postDelayed(() ->
+                    anim(vigoNodAngle, 0f, 350, new DecelerateInterpolator(), v -> vigoNodAngle = v),
+                    250);
+                break;
+
+            case "auto_puf_roll":
+                if (formState != STATE_IDLE) break;
+                anim(0f, (float)(Math.PI * 2), 1000, new AccelerateDecelerateInterpolator(),
+                        v -> pufRollAngle = v);
+                break;
+
+            case "auto_all_look":
+                if (formState != STATE_IDLE) break;
+                setEmotion(VIGO, 0.6f, 0.1f, 1.1f, 200);
+                setEmotion(NOX,  0.6f, 0.1f, 1.1f, 200);
+                setEmotion(PUF,  0.6f, 0.1f, 1.1f, 200);
+                setEmotion(ZIP,  0.6f, 0.1f, 1.1f, 200);
+                h.postDelayed(() -> {
+                    setEmotion(VIGO, 0f, 0.3f, 1f, 400);
+                    setEmotion(NOX,  0f, 0.3f, 1f, 400);
+                    setEmotion(PUF,  0f, 0.3f, 1f, 400);
+                    setEmotion(ZIP,  0f, 0.3f, 1f, 400);
+                }, 1800);
                 break;
         }
-        post(() -> invalidate());
     }
 
-    public void onEmotionChanged(CharacterBrain.CharId id,
-                                  float eyebrow, float mouth, float eyes) {
-        switch (id) {
-            case VIGO: vigoEyebrow = eyebrow; vigoMouth = mouth; break;
-            case NOX:  noxEyebrow  = eyebrow; noxMouth  = mouth; break;
-            case PUF:  pufEyebrow  = eyebrow; pufMouth  = mouth; break;
-            case ZIP:  zipEyebrow  = eyebrow; zipMouth  = mouth; break;
+    // ═══════════════════════════════════════════
+    //  OTONOM ZAMANLAYICI
+    // ═══════════════════════════════════════════
+    private static final String[] AUTO_SCENES = {
+        "auto_nox_peeks",
+        "auto_zip_jump_vigo_stare",
+        "auto_puf_sleep",
+        "auto_nox_zip_argument",
+        "auto_vigo_posture",
+        "auto_puf_roll",
+        "auto_all_look"
+    };
+
+    private void scheduleAutonomousEvents() {
+        if (!autonomousRunning) return;
+        long delay = 8000 + (long)(rnd.nextFloat() * 14000);
+        h.postDelayed(() -> {
+            if (formState == STATE_IDLE) {
+                String scene = AUTO_SCENES[rnd.nextInt(AUTO_SCENES.length)];
+                playScene(scene);
+            }
+            scheduleAutonomousEvents();
+        }, delay);
+
+        // Boşta kalma kontrolü
+        h.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (!autonomousRunning) return;
+                if (formState == STATE_IDLE && idleMs > 25000) {
+                    playScene("auto_puf_sleep");
+                }
+                h.postDelayed(this, 5000);
+            }
+        }, 5000);
+    }
+
+    // ═══════════════════════════════════════════
+    //  FİZİK ADIMI
+    // ═══════════════════════════════════════════
+    private void physicsStep() {
+        for (int i = 0; i < 4; i++) {
+            if (draggedChar == i) continue;
+            // Elastik ip — eve döner
+            velX[i] += -posX[i] * 0.09f;
+            velY[i] += -posY[i] * 0.09f;
+            // Sönümleme
+            velX[i] *= 0.78f;
+            velY[i] *= 0.78f;
+            // İntegrasyon
+            posX[i] += velX[i];
+            posY[i] += velY[i];
         }
-        post(() -> invalidate());
+        // Basit çarpışma
+        checkCollisions();
     }
 
-    public void onPositionIntent(CharacterBrain.CharId id, float dx, float dy) {
-        post(() -> invalidate());
-    }
-
-    public void onSceneCue(String sceneId) {
-        post(() -> invalidate());
-    }
-
-    public void onCharacterCue(CharacterBrain.CharId id, String cue) {
-        switch (cue) {
-            case "jump":
-            case "jump_small":
-            case "cool_jump":
-                float height = cue.equals("jump_small") ? 0.6f : 1f;
-                animateFloat(0f, height, 200, v -> zipJumpExtra = v);
-                postDelayed(() -> animateFloat(zipJumpExtra, 0f, 350,
-                        v -> zipJumpExtra = v), 220);
-                break;
-            case "nod":
-                animateFloat(0f, 1f, 150, v -> vigoNodProgress = v);
-                postDelayed(() -> animateFloat(1f, 0f, 200,
-                        v -> vigoNodProgress = v), 180);
-                break;
-            case "poke_puf":
-                animateFloat(0f, 1f, 200, v -> noxPokeProgress = v);
-                postDelayed(() -> animateFloat(1f, 0f, 250,
-                        v -> noxPokeProgress = v), 220);
-                break;
-            case "roll_sway":
-                animateFloat(0f, (float)(Math.PI * 2), 1200, v -> pufRollAngle = v);
-                break;
-            case "turn_back":
-                animateFloat(pufTurnAngle, 1f, 500, v -> pufTurnAngle = v);
-                break;
-            case "turn_front":
-                animateFloat(pufTurnAngle, 0f, 500, v -> pufTurnAngle = v);
-                break;
-            case "peek_password":
-                animateFloat(noxPeekProgress, 1f, 400, v -> noxPeekProgress = v);
-                break;
-            case "fix_posture":
-                animateFloat(0f, 1f, 200, v -> vigoNodProgress = v * 0.5f);
-                postDelayed(() -> animateFloat(vigoNodProgress, 0f, 300,
-                        v -> vigoNodProgress = v), 220);
-                break;
+    private void checkCollisions() {
+        float[] charR = getCharRadii();
+        for (int i = 0; i < 4; i++) {
+            for (int j = i+1; j < 4; j++) {
+                float[] ci = getCharCenter(i), cj = getCharCenter(j);
+                float dx = (cj[0]+posX[j]) - (ci[0]+posX[i]);
+                float dy = (cj[1]+posY[j]) - (ci[1]+posY[i]);
+                float dist = (float)Math.sqrt(dx*dx+dy*dy);
+                float minD = charR[i] + charR[j];
+                if (dist < minD && dist > 1f) {
+                    float nx = dx/dist, ny = dy/dist;
+                    float push = (minD - dist) * 0.4f;
+                    if (draggedChar != i) { posX[i] -= nx*push*0.5f; posY[i] -= ny*push*0.5f; }
+                    if (draggedChar != j) { posX[j] += nx*push*0.5f; posY[j] += ny*push*0.5f; }
+                    // Çarpışma tepkisi
+                    velX[i] -= nx * 1.5f; velY[i] -= ny * 1.5f;
+                    velX[j] += nx * 1.5f; velY[j] += ny * 1.5f;
+                }
+            }
         }
-        post(() -> invalidate());
     }
 
-    // Basit float animasyon yardımcısı
-    private void animateFloat(float from, float to, int ms, Setter setter) {
-        android.animation.ValueAnimator va =
-            android.animation.ValueAnimator.ofFloat(from, to);
-        va.setDuration(ms);
-        va.addUpdateListener(a -> {
-            setter.set((float) a.getAnimatedValue());
-            invalidate();
-        });
-        va.start();
+    // ═══════════════════════════════════════════
+    //  DOKUNMA
+    // ═══════════════════════════════════════════
+    private boolean handleTouch(View v, MotionEvent e) {
+        float tx = e.getX(), ty = e.getY();
+        notifyActivity();
+
+        switch (e.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                draggedChar = findCharAt(tx, ty);
+                if (draggedChar >= 0) {
+                    dragStartX = tx; dragStartY = ty;
+                    lastTouchX = tx; lastTouchY = ty;
+                    lastTouchTime = System.currentTimeMillis();
+                    // Dokunma irkilmesi
+                    int c = draggedChar;
+                    setEmotion(c, 0.8f, -0.3f, 1.3f, 80);
+                    h.postDelayed(() -> setEmotion(c, eyebrow[c]*0.5f, mouthCurve[c], 1f, 300), 300);
+                }
+                return true;
+
+            case MotionEvent.ACTION_MOVE:
+                if (draggedChar >= 0) {
+                    float w = getWidth(), h2 = getHeight();
+                    float[] base = getCharCenter(draggedChar);
+                    // Sınır: karakterin bölgesinden çok uzaklaşmasın
+                    float maxDrift = w * 0.28f;
+                    float ndx = tx - base[0], ndy = ty - base[1];
+                    float ndist = (float)Math.sqrt(ndx*ndx+ndy*ndy);
+                    if (ndist > maxDrift) {
+                        ndx = ndx/ndist * maxDrift;
+                        ndy = ndy/ndist * maxDrift;
+                    }
+                    posX[draggedChar] = ndx;
+                    posY[draggedChar] = ndy;
+                    velX[draggedChar] = (tx - lastTouchX) * 0.5f;
+                    velY[draggedChar] = (ty - lastTouchY) * 0.5f;
+                    lastTouchX = tx; lastTouchY = ty;
+                }
+                return true;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (draggedChar >= 0) {
+                    long dt = System.currentTimeMillis() - lastTouchTime;
+                    if (dt < 120) {
+                        // Fling — hız uygula
+                        velX[draggedChar] = (tx - lastTouchX) * 2.5f;
+                        velY[draggedChar] = (ty - lastTouchY) * 2.5f;
+                    }
+                    draggedChar = -1;
+                }
+                return true;
+        }
+        return false;
     }
 
-    // ── DURUM ANİMASYONLARI ──
-    private void animateIdle() {
-        stateAnimSet = buildSet(
-            anim(leanForward,  0f, 400, new DecelerateInterpolator(), v -> leanForward  = v),
-            anim(orangeTurn,   0f, 500, new OvershootInterpolator(),  v -> orangeTurn   = v),
-            anim(blockerRaise, 0f, 400, new DecelerateInterpolator(), v -> blockerRaise = v),
-            anim(peekLean,     0f, 300, new DecelerateInterpolator(), v -> peekLean     = v),
-            anim(eyebrowRaise, 0f, 300, new DecelerateInterpolator(), v -> eyebrowRaise = v)
-        );
-        stateAnimSet.start();
+    private int findCharAt(float tx, float ty) {
+        float[] radii = getCharRadii();
+        for (int i = 0; i < 4; i++) {
+            float[] c = getCharCenter(i);
+            float dx = tx - (c[0] + posX[i]);
+            float dy = ty - (c[1] + posY[i]);
+            if (Math.sqrt(dx*dx+dy*dy) < radii[i] * 1.3f) return i;
+        }
+        return -1;
     }
 
-    private void animateEmailFocus() {
-        stateAnimSet = buildSet(
-            anim(leanForward,  1f, 500, new OvershootInterpolator(1.2f), v -> leanForward  = v),
-            anim(orangeTurn,   0f, 400, new DecelerateInterpolator(),    v -> orangeTurn   = v),
-            anim(blockerRaise, 0f, 300, new DecelerateInterpolator(),    v -> blockerRaise = v),
-            anim(eyebrowRaise, 1f, 400, new OvershootInterpolator(),     v -> eyebrowRaise = v)
-        );
-        stateAnimSet.start();
-    }
-
-    private void animatePassHide() {
-        stateAnimSet = buildSet(
-            anim(orangeTurn,   1f, 600, new OvershootInterpolator(0.8f), v -> orangeTurn   = v),
-            anim(blockerRaise, 1f, 500, new OvershootInterpolator(1.5f), v -> blockerRaise = v),
-            anim(leanForward,  0f, 300, new DecelerateInterpolator(),    v -> leanForward  = v),
-            anim(peekLean,     0f, 300, new DecelerateInterpolator(),    v -> peekLean     = v),
-            anim(eyebrowRaise, 0f, 300, new DecelerateInterpolator(),    v -> eyebrowRaise = v)
-        );
-        stateAnimSet.start();
-    }
-
-    private void animatePassShow() {
-        stateAnimSet = buildSet(
-            anim(orangeTurn,   1f, 400, new DecelerateInterpolator(),    v -> orangeTurn   = v),
-            anim(peekLean,     1f, 500, new OvershootInterpolator(2f),   v -> peekLean     = v),
-            anim(blockerRaise, 1f, 600, new OvershootInterpolator(1.8f), v -> blockerRaise = v),
-            anim(eyebrowRaise, 1f, 400, new OvershootInterpolator(),     v -> eyebrowRaise = v)
-        );
-        stateAnimSet.start();
-    }
-
-    private void animateError() {
-        AnimatorSet shock = buildSet(
-            anim(shockScale,   1.18f, 150, new OvershootInterpolator(3f), v -> shockScale = v),
-            anim(eyebrowRaise, 1f,    150, new AccelerateInterpolator(),   v -> eyebrowRaise = v)
-        );
-        AnimatorSet settle = buildSet(
-            anim(shockScale,   1f, 300, new BounceInterpolator(), v -> shockScale = v)
-        );
-        settle.setStartDelay(200);
-        stateAnimSet = new AnimatorSet();
-        stateAnimSet.playSequentially(shock, settle);
-        stateAnimSet.start();
-        postDelayed(() -> { if (state == STATE_ERROR) setState(STATE_IDLE); }, 1500);
-    }
-
-    private void animateSuccess() {
-        stateAnimSet = buildSet(
-            anim(jumpY,        1f, 400, new OvershootInterpolator(2f),   v -> jumpY = v),
-            anim(eyebrowRaise, 1f, 300, new AccelerateInterpolator(),    v -> eyebrowRaise = v)
-        );
-        stateAnimSet.start();
-    }
-
-    // ── ANİMATÖR YARDIMCISI ──
-    interface Setter { void set(float v); }
-
-    private ValueAnimator anim(float from, float to, int ms,
-                               TimeInterpolator interp, Setter setter) {
-        ValueAnimator va = ValueAnimator.ofFloat(from, to);
-        va.setDuration(ms);
-        va.setInterpolator(interp);
-        va.addUpdateListener(a -> { setter.set((float)a.getAnimatedValue()); invalidate(); });
-        return va;
-    }
-
-    private AnimatorSet buildSet(ValueAnimator... anims) {
-        AnimatorSet s = new AnimatorSet();
-        s.playTogether(anims);
-        return s;
-    }
-
-    // ── ÇİZİM ──
+    // ═══════════════════════════════════════════
+    //  ÇİZİM
+    // ═══════════════════════════════════════════
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float w = getWidth(), h = getHeight();
+        drawScene(canvas, w, h);
+    }
 
-        float bob1 = (float) Math.sin(idleBob)           * h * 0.012f;
-        float bob2 = (float) Math.sin(idleBob + 0.8f)    * h * 0.010f;
-        float bob3 = (float) Math.sin(idleBob + 1.6f)    * h * 0.014f;
-        float bob4 = (float) Math.sin(idleBob + 2.4f)    * h * 0.009f;
+    private void drawScene(Canvas canvas, float w, float h) {
+        float baseY = h * 0.90f;
+        float bob1 = (float)Math.sin(bobPhase)        * h * 0.013f;
+        float bob2 = (float)Math.sin(bobPhase + 0.9f) * h * 0.011f;
+        float bob3 = (float)Math.sin(bobPhase + 1.8f) * h * 0.016f;
+        float bob4 = (float)Math.sin(bobPhase + 2.7f) * h * 0.010f;
 
-        float shockOff = (shockScale - 1f) * h * 0.06f;
-        float globalY = -jumpY * h * 0.06f - shockOff;
-
+        // Şok skalası
+        float shockS  = 1f + groupShock * 0.13f;
         canvas.save();
-        canvas.translate(0, globalY);
-        canvas.scale(shockScale, shockScale, w * 0.5f, h * 0.65f);
+        canvas.scale(shockS, shockS, w*0.5f, baseY);
 
-        drawScene(canvas, w, h, bob1, bob2, bob3, bob4);
+        // Zemin gölgeleri
+        drawGroundShadows(canvas, w, baseY);
+
+        // Çizim sırası: arkadan öne
+        drawPuf (canvas, w, h, baseY, bob3); // Turuncu — en önde
+        drawVigo(canvas, w, h, baseY, bob1); // Mor
+        drawNox (canvas, w, h, baseY, bob2); // Siyah
+        drawZip (canvas, w, h, baseY, bob4); // Sarı
 
         canvas.restore();
     }
 
-    private void drawScene(Canvas canvas, float w, float h,
-                           float bob1, float bob2, float bob3, float bob4) {
-        float baseY = h * 0.88f;
-        float lean = leanForward * h * 0.04f;
+        // ── VIGO (Mor dikdörtgen) ──
+    private void drawVigo(Canvas canvas, float w, float h, float baseY, float bob) {
+        float bw = w * 0.24f, bh = h * 0.40f;
+        float cx = w * 0.26f + posX[VIGO];
+        float by = baseY - bh + bob + posY[VIGO];
+        float lean = vigoNodAngle * bh * 0.04f;
 
-        // ── TURUNCU (yuvarlak, en solda/önde) ──
-        float orCX = w * 0.20f;
-        float orCY = baseY - w * 0.20f + bob3;
-        float orR  = w * 0.20f;
-        drawOrangeChar(canvas, orCX, orCY, orR, orangeTurn, lean);
+        canvas.save();
+        canvas.rotate(lean * 2f, cx, by + bh);
 
-        // ── MOR (dikdörtgen, sol-orta) ──
-        float purX = w * 0.28f;
-        float purW = w * 0.22f;
-        float purH = h * 0.42f;
-        float purY = baseY - purH + bob1 - lean;
-        drawPurpleChar(canvas, purX, purY, purW, purH, blockerRaise, eyebrowRaise);
-
-        // ── SİYAH (ince, ortada) ──
-        float blkX = w * 0.50f;
-        float blkW = w * 0.15f;
-        float blkH = h * 0.35f;
-        float blkY = baseY - blkH + bob2 - lean * 0.5f;
-        drawBlackChar(canvas, blkX, blkY, blkW, blkH, peekLean, eyebrowRaise, blockerRaise);
-
-        // ── SARI (dikdörtgen, sağ) ──
-        float yelX = w * 0.68f;
-        float yelW = w * 0.20f;
-        float yelH = h * 0.32f;
-        float yelY = baseY - yelH + bob4 - lean;
-        drawYellowChar(canvas, yelX, yelY, yelW, yelH, blockerRaise, eyebrowRaise);
-
-        drawGroundShadows(canvas, w, baseY);
-    }
-
-    private void drawOrangeChar(Canvas canvas, float cx, float cy, float r,
-                                 float turnProg, float lean) {
-        p.setShader(new RadialGradient(cx - r*0.2f, cy - r*0.2f, r*1.1f,
-                0xFFFF8C42, 0xFFE65100, Shader.TileMode.CLAMP));
+        // Gövde
+        RectF body = new RectF(cx - bw/2f, by, cx + bw/2f, by + bh);
+        p.setShader(new LinearGradient(cx-bw/2f, by, cx+bw/2f, by+bh,
+                0xFF9C27B0, 0xFF4A0072, Shader.TileMode.CLAMP));
         p.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(cx, cy - lean, r, p);
+        canvas.drawRoundRect(body, bw*0.28f, bw*0.28f, p);
         p.setShader(null);
 
-        p.setColor(0x33FF3D00);
-        canvas.drawCircle(cx - r*0.45f, cy - lean + r*0.15f, r*0.22f, p);
-        canvas.drawCircle(cx + r*0.45f, cy - lean + r*0.15f, r*0.22f, p);
+        // Yüz
+        drawFace(canvas, cx, by + bh*0.28f, bw,
+                eyebrow[VIGO], mouthCurve[VIGO], eyeOpen[VIGO], false, 0f);
 
-        if (turnProg < 0.5f) {
-            float alpha = 1f - turnProg * 2f;
-            drawFace(canvas, cx, cy - lean, r, alpha, false, 0f);
-        } else {
-            float alpha = (turnProg - 0.5f) * 2f;
-            p.setColor(lerpColor(0xFFE65100, 0xFFBF360C, alpha));
-            canvas.drawCircle(cx, cy - lean, r * 0.85f, p);
-            p.setColor(0xFFBF360C);
-            canvas.drawArc(new RectF(cx-r*0.5f, cy-lean-r*0.8f, cx+r*0.5f, cy-lean-r*0.2f),
-                    0, 180, false, p);
-        }
-    }
-
-    private void drawPurpleChar(Canvas canvas, float x, float y, float w, float h,
-                                 float blockerProg, float eyebrow) {
-        float cx = x + w/2f;
-        RectF body = new RectF(x, y, x + w, y + h);
-        p.setShader(new LinearGradient(x, y, x+w, y+h,
-                0xFF9C27B0, 0xFF6A0080, Shader.TileMode.CLAMP));
-        p.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(body, w*0.3f, w*0.3f, p);
-        p.setShader(null);
-
-        float faceY = y + h * 0.28f;
-        drawRectFace(canvas, cx, faceY, w, eyebrow, blockerProg > 0.3f);
-
-        if (blockerProg > 0.05f) {
-            float armLen = w * 1.0f * blockerProg;
-            float armY   = y + h * 0.35f;
-            float armH   = h * 0.09f;
+        // Dur kolu (sağa uzanır)
+        if (vigoArmRaise > 0.02f) {
+            float armLen = bw * 1.1f * vigoArmRaise;
+            float armY   = by + bh * 0.38f;
+            float armH   = bh * 0.085f;
             p.setColor(0xFF7B1FA2);
-            RectF arm = new RectF(x + w, armY, x + w + armLen, armY + armH);
+            RectF arm = new RectF(cx + bw/2f, armY, cx + bw/2f + armLen, armY + armH);
             canvas.drawRoundRect(arm, armH/2f, armH/2f, p);
+            // El
             p.setColor(0xFF9C27B0);
-            canvas.drawCircle(x + w + armLen, armY + armH/2f, armH * 0.7f, p);
+            canvas.drawCircle(cx + bw/2f + armLen, armY + armH/2f, armH*0.8f, p);
         }
+
+        // Uyku Z'si
+        if (sleepZ[VIGO] > 0.1f) drawSleepZ(canvas, cx + bw*0.4f, by, sleepZ[VIGO]);
+
+        canvas.restore();
     }
 
-    private void drawBlackChar(Canvas canvas, float x, float y, float w, float h,
-                                float peekProg, float eyebrow, float blockerProg) {
-        float cx = x + w/2f;
-        float peekOffX = peekProg * w * 0.6f;
+    // ── NOX (Siyah ince) ──
+    private void drawNox(Canvas canvas, float w, float h, float baseY, float bob) {
+        float bw = w * 0.16f, bh = h * 0.34f;
+        float baseCX = w * 0.50f;
+        // Peek lean: öne eğilir (sola)
+        float leanOffX = -noxPeekLean * bw * 1.0f;
+        float leanOffY = -noxPeekLean * bh * 0.15f;
+        float cx = baseCX + leanOffX + posX[NOX];
+        float by = baseY - bh + bob + leanOffY + posY[NOX];
 
-        RectF body = new RectF(x + peekOffX, y, x + w + peekOffX, y + h);
-        p.setShader(new LinearGradient(x, y, x+w, y+h,
-                0xFF2C2C2C, 0xFF0A0A0A, Shader.TileMode.CLAMP));
+        float leanAngle = -noxPeekLean * 22f;
+        canvas.save();
+        canvas.rotate(leanAngle, cx, by + bh);
+
+        // Gövde
+        RectF body = new RectF(cx - bw/2f, by, cx + bw/2f, by + bh);
+        p.setShader(new LinearGradient(cx, by, cx, by+bh,
+                0xFF2C2C2C, 0xFF080808, Shader.TileMode.CLAMP));
         p.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(body, w*0.35f, w*0.35f, p);
+        canvas.drawRoundRect(body, bw*0.35f, bw*0.35f, p);
         p.setShader(null);
 
-        float faceCX = cx + peekOffX + peekProg * w * 0.3f;
-        float faceY  = y + h * 0.25f;
-        drawTallFace(canvas, faceCX, faceY, w, eyebrow, peekProg, curGX, curGY);
+        // Yüz — peek'te gözler sağa kayar
+        float peekGazeX = curGX + noxPeekLean * 8f;
+        drawFace(canvas, cx, by + bh*0.26f, bw,
+                eyebrow[NOX], mouthCurve[NOX], eyeOpen[NOX],
+                false, peekGazeX - curGX);
+
+        // Uzanan kol (sağa)
+        if (noxArmReach > 0.02f) {
+            float armLen = bw * 2.5f * noxArmReach;
+            float armY   = by + bh * 0.35f;
+            float armH   = bh * 0.075f;
+            p.setColor(0xFF1A1A1A);
+            RectF arm = new RectF(cx + bw/2f, armY, cx + bw/2f + armLen, armY + armH);
+            canvas.drawRoundRect(arm, armH/2f, armH/2f, p);
+            p.setColor(0xFF2C2C2C);
+            canvas.drawCircle(cx + bw/2f + armLen, armY + armH/2f, armH*0.85f, p);
+        }
+
+        // Puf'u dürtme kolu (sola)
+        if (noxPokeArm > 0.02f) {
+            float armLen = bw * 1.8f * noxPokeArm;
+            float armY   = by + bh * 0.40f;
+            float armH   = bh * 0.07f;
+            p.setColor(0xFF1A1A1A);
+            RectF arm = new RectF(cx - bw/2f - armLen, armY, cx - bw/2f, armY + armH);
+            canvas.drawRoundRect(arm, armH/2f, armH/2f, p);
+        }
+
+        // Teslim elleri (yukarı)
+        if (noxSurrenderY > 0.02f) {
+            float handY  = by + bh*0.2f - noxSurrenderY * bh*0.25f;
+            float handSz = bw * 0.45f;
+            p.setColor(0xFF2C2C2C);
+            canvas.drawCircle(cx - bw*0.38f, handY, handSz, p);
+            canvas.drawCircle(cx + bw*0.38f, handY, handSz, p);
+        }
+
+        if (sleepZ[NOX] > 0.1f) drawSleepZ(canvas, cx + bw*0.4f, by, sleepZ[NOX]);
+
+        canvas.restore();
     }
 
-    private void drawYellowChar(Canvas canvas, float x, float y, float w, float h,
-                                 float blockerProg, float eyebrow) {
-        float cx = x + w/2f;
-        RectF body = new RectF(x, y, x + w, y + h);
-        p.setShader(new LinearGradient(x, y, x, y+h,
-                0xFFFFD600, 0xFFFFA000, Shader.TileMode.CLAMP));
+    // ── PUF (Turuncu yuvarlak) ──
+    private void drawPuf(Canvas canvas, float w, float h, float baseY, float bob) {
+        float r  = w * 0.22f;
+        float cx = w * 0.16f + posX[PUF];
+        float cy = baseY - r + bob + posY[PUF];
+
+        // Sallanma
+        float rollSway = (float)Math.sin(pufRollAngle) * r * 0.22f;
+
+        canvas.save();
+        canvas.rotate(rollSway * 8f, cx, cy + r * 0.6f);
+
+        // Gövde
+        p.setShader(new RadialGradient(cx - r*0.2f, cy - r*0.2f, r * 1.2f,
+                0xFFFF8C42, 0xFFD84315, Shader.TileMode.CLAMP));
         p.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(body, w*0.28f, w*0.28f, p);
+        canvas.drawCircle(cx, cy, r, p);
         p.setShader(null);
 
-        float faceY = y + h * 0.26f;
-        drawRectFace(canvas, cx, faceY, w, eyebrow, blockerProg > 0.3f);
+        // Yanak allığı
+        p.setColor(0x33FF3D00);
+        canvas.drawCircle(cx - r*0.48f, cy + r*0.18f, r*0.22f, p);
+        canvas.drawCircle(cx + r*0.48f, cy + r*0.18f, r*0.22f, p);
 
-        if (blockerProg > 0.05f) {
-            float armLen = w * 0.9f * blockerProg;
-            float armY   = y + h * 0.33f;
-            float armH   = h * 0.08f;
+        if (pufTurnAngle < 0.5f) {
+            // Öne bakıyor
+            float faceAlpha = 1f - pufTurnAngle * 2f;
+            drawFaceRound(canvas, cx, cy, r, faceAlpha,
+                    eyebrow[PUF], mouthCurve[PUF], eyeOpen[PUF]);
+        } else {
+            // Arkasını dönüyor — sırt görünümü
+            float backAlpha = (pufTurnAngle - 0.5f) * 2f;
+            p.setColor(lerpColor(0xFFD84315, 0xFFBF360C, backAlpha));
+            canvas.drawCircle(cx, cy, r * 0.78f, p);
+            // Küçük topaç şekli
+            p.setColor(0x44000000);
+            canvas.drawCircle(cx, cy - r*0.1f, r*0.18f, p);
+        }
+
+        if (sleepZ[PUF] > 0.1f) drawSleepZ(canvas, cx + r*0.55f, cy - r*0.4f, sleepZ[PUF]);
+
+        canvas.restore();
+    }
+
+    // ── ZIP (Sarı dikdörtgen) ──
+    private void drawZip(Canvas canvas, float w, float h, float baseY, float bob) {
+        float bw = w * 0.20f, bh = h * 0.30f;
+        float cx = w * 0.76f + posX[ZIP];
+
+        // Başarı dalgası
+        float waveOff = successWave > 0f
+                ? (float)Math.sin(successWave + 2.4f) * h * 0.025f : 0f;
+        float jumpOff = -(zipJumpBonus * h * 0.07f) + waveOff;
+        float by = baseY - bh + bob + jumpOff + posY[ZIP];
+
+        canvas.save();
+
+        // Gövde
+        RectF body = new RectF(cx - bw/2f, by, cx + bw/2f, by + bh);
+        p.setShader(new LinearGradient(cx, by, cx, by+bh,
+                0xFFFFD600, 0xFFFF8F00, Shader.TileMode.CLAMP));
+        p.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(body, bw*0.28f, bw*0.28f, p);
+        p.setShader(null);
+
+        // Yüz
+        drawFace(canvas, cx, by + bh*0.26f, bw,
+                eyebrow[ZIP], mouthCurve[ZIP], eyeOpen[ZIP], false, 0f);
+
+        // Dur kolu (sola)
+        if (zipArmRaise > 0.02f) {
+            float armLen = bw * 1.0f * zipArmRaise;
+            float armY   = by + bh * 0.36f;
+            float armH   = bh * 0.08f;
             p.setColor(0xFFFFA000);
-            RectF arm = new RectF(x - armLen, armY, x, armY + armH);
+            RectF arm = new RectF(cx - bw/2f - armLen, armY, cx - bw/2f, armY + armH);
             canvas.drawRoundRect(arm, armH/2f, armH/2f, p);
             p.setColor(0xFFFFD600);
-            canvas.drawCircle(x - armLen, armY + armH/2f, armH * 0.7f, p);
+            canvas.drawCircle(cx - bw/2f - armLen, armY + armH/2f, armH*0.8f, p);
         }
+
+        if (sleepZ[ZIP] > 0.1f) drawSleepZ(canvas, cx + bw*0.4f, by, sleepZ[ZIP]);
+
+        canvas.restore();
     }
 
-    private void drawFace(Canvas canvas, float cx, float cy, float r,
-                           float alpha, boolean shocked, float peekX) {
+    // ═══════════════════════════════════════════
+    //  YÜZ ÇİZİCİLER
+    // ═══════════════════════════════════════════
+
+    // Dikdörtgen karakterler için (Vigo, Nox, Zip)
+    private void drawFace(Canvas canvas, float cx, float topY, float charW,
+                           float brow, float mouth, float eyeOpenness,
+                           boolean shocked, float extraGazeX) {
+        float ew = charW * 0.16f, eh = charW * 0.11f;
+        float sp = charW * 0.22f; // göz aralığı
+
+        // Kaşlar
+        p.setColor(Color.WHITE);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(charW * 0.055f);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        float browLift = brow * charW * 0.07f;
+        float innerTilt = brow * charW * 0.04f; // iç kenar tilt
+        if (brow < -0.1f) {
+            // Üzgün — iç köşeler yukarıda
+            canvas.drawLine(cx-sp-ew, topY-browLift+innerTilt*1.5f, cx-sp+ew, topY-browLift-innerTilt, p);
+            canvas.drawLine(cx+sp-ew, topY-browLift-innerTilt, cx+sp+ew, topY-browLift+innerTilt*1.5f, p);
+        } else if (brow > 0.3f) {
+            // Şaşkın/endişeli — V şeklinde
+            canvas.drawLine(cx-sp-ew, topY-browLift, cx-sp+ew, topY-browLift+innerTilt, p);
+            canvas.drawLine(cx+sp-ew, topY-browLift+innerTilt, cx+sp+ew, topY-browLift, p);
+        } else {
+            // Normal
+            canvas.drawLine(cx-sp-ew, topY-browLift, cx-sp+ew, topY-browLift, p);
+            canvas.drawLine(cx+sp-ew, topY-browLift, cx+sp+ew, topY-browLift, p);
+        }
+        p.setStyle(Paint.Style.FILL);
+
+        // Göz beyazları — eyeOpenness ile yükseklik değişir
+        float eyeH = eh * eyeOpenness;
+        if (eyeH < 1f) eyeH = 1f;
+        p.setColor(Color.WHITE);
+        canvas.drawOval(cx-sp-ew, topY, cx-sp+ew, topY+eyeH*2f, p);
+        canvas.drawOval(cx+sp-ew, topY, cx+sp+ew, topY+eyeH*2f, p);
+
+        // Pupiller
+        float pr   = ew * 0.52f;
+        float maxX = ew  * 0.40f, maxY = eyeH * 0.35f;
+        float ox   = Math.max(-maxX, Math.min(maxX, curGX + extraGazeX));
+        float oy   = Math.max(-maxY, Math.min(maxY, curGY));
+        p.setColor(0xFF111111);
+        canvas.drawCircle(cx - sp + ox, topY + eyeH + oy, pr, p);
+        canvas.drawCircle(cx + sp + ox, topY + eyeH + oy, pr, p);
+
+        // Mavi iris
+        p.setColor(0x664D9EFF);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(pr * 0.22f);
+        canvas.drawCircle(cx - sp + ox, topY + eyeH + oy, pr * 0.68f, p);
+        canvas.drawCircle(cx + sp + ox, topY + eyeH + oy, pr * 0.68f, p);
+        p.setStyle(Paint.Style.FILL);
+
+        // Parlaklık
+        p.setColor(Color.WHITE);
+        float shineR = pr * 0.28f;
+        canvas.drawCircle(cx-sp+ox+pr*0.28f, topY+eyeH+oy-pr*0.32f, shineR, p);
+        canvas.drawCircle(cx+sp+ox+pr*0.28f, topY+eyeH+oy-pr*0.32f, shineR, p);
+
+        // Ağız
+        p.setColor(Color.WHITE);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(charW * 0.048f);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        float mouthY = topY + eyeH * 3.2f;
+        float mouthW = ew * 1.1f;
+        if (shocked || mouth < -0.3f) {
+            canvas.drawOval(cx-mouthW*0.5f, mouthY, cx+mouthW*0.5f, mouthY+mouthW*0.7f, p);
+        } else if (mouth > 0.5f) {
+            canvas.drawArc(new RectF(cx-mouthW, mouthY-ew*0.2f,
+                                     cx+mouthW, mouthY+ew*0.7f), 0, 180, false, p);
+        } else if (mouth < 0f) {
+            canvas.drawArc(new RectF(cx-mouthW, mouthY,
+                                     cx+mouthW, mouthY+ew*0.5f), 0, -180, false, p);
+        } else {
+            canvas.drawLine(cx-mouthW*0.6f, mouthY+ew*0.1f, cx+mouthW*0.6f, mouthY+ew*0.1f, p);
+        }
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    // Yuvarlak Puf için
+    private void drawFaceRound(Canvas canvas, float cx, float cy, float r,
+                                float alpha, float brow, float mouth, float eyeOpenness) {
         int a = (int)(255 * alpha);
-        if (a < 10) return;
+        if (a < 5) return;
 
-        float eyeSpacing = r * 0.32f;
-        float eyeY = cy - r * 0.08f;
-        float erw  = r * 0.16f, erh = r * 0.20f;
+        float sp = r * 0.30f;
+        float ew = r * 0.17f, eh = r * 0.12f * eyeOpenness;
+        if (eh < 1f) eh = 1f;
 
+        // Kaş
         p.setColor(Color.WHITE); p.setAlpha(a);
-        canvas.drawOval(cx-eyeSpacing-erw, eyeY-erh, cx-eyeSpacing+erw, eyeY+erh, p);
-        canvas.drawOval(cx+eyeSpacing-erw, eyeY-erh, cx+eyeSpacing+erw, eyeY+erh, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(r * 0.06f);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        float browLift = brow * r * 0.07f;
+        float eyeY = cy - r * 0.08f;
+        canvas.drawLine(cx-sp-ew, eyeY-eh-browLift-r*0.12f,
+                        cx-sp+ew, eyeY-eh-browLift-r*0.12f, p);
+        canvas.drawLine(cx+sp-ew, eyeY-eh-browLift-r*0.12f,
+                        cx+sp+ew, eyeY-eh-browLift-r*0.12f, p);
+        p.setStyle(Paint.Style.FILL);
 
-        float pr = erw * 0.55f;
-        float ox  = Math.max(-erw*0.4f, Math.min(erw*0.4f, curGX + peekX));
-        float oy  = Math.max(-erh*0.35f, Math.min(erh*0.35f, curGY));
+        // Göz beyazları
+        p.setColor(Color.WHITE); p.setAlpha(a);
+        canvas.drawOval(cx-sp-ew, eyeY-eh, cx-sp+ew, eyeY+eh, p);
+        canvas.drawOval(cx+sp-ew, eyeY-eh, cx+sp+ew, eyeY+eh, p);
+
+        // Pupiller + gaze
+        float pr = ew * 0.54f;
+        float maxX = ew*0.38f, maxY = eh*0.32f;
+        float ox = Math.max(-maxX, Math.min(maxX, curGX));
+        float oy = Math.max(-maxY, Math.min(maxY, curGY));
         p.setColor(0xFF111111); p.setAlpha(a);
-        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + oy, pr, p);
-        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + oy, pr, p);
+        canvas.drawCircle(cx-sp+ox, eyeY+oy, pr, p);
+        canvas.drawCircle(cx+sp+ox, eyeY+oy, pr, p);
+        p.setColor(Color.WHITE); p.setAlpha((int)(a*0.85f));
+        canvas.drawCircle(cx-sp+ox+pr*0.3f, eyeY+oy-pr*0.32f, pr*0.28f, p);
+        canvas.drawCircle(cx+sp+ox+pr*0.3f, eyeY+oy-pr*0.32f, pr*0.28f, p);
 
-        p.setColor(Color.WHITE); p.setAlpha((int)(a * 0.85f));
-        canvas.drawCircle(cx-eyeSpacing+ox+pr*0.3f, eyeY+oy-pr*0.35f, pr*0.3f, p);
-        canvas.drawCircle(cx+eyeSpacing+ox+pr*0.3f, eyeY+oy-pr*0.35f, pr*0.3f, p);
-
-        p.setColor(0xFF222222); p.setAlpha(a);
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(r * 0.045f);
+        // Ağız
+        p.setColor(Color.WHITE); p.setAlpha(a);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(r * 0.055f);
         p.setStrokeCap(Paint.Cap.ROUND);
-        if (shocked) {
-            canvas.drawOval(cx - r*0.12f, cy + r*0.25f,
-                            cx + r*0.12f, cy + r*0.42f, p);
+        float mouthY = cy + r * 0.22f;
+        if (mouth > 0.3f) {
+            canvas.drawArc(new RectF(cx-r*0.28f, mouthY-r*0.06f,
+                                     cx+r*0.28f, mouthY+r*0.18f), 0, 180, false, p);
+        } else if (mouth < -0.2f) {
+            canvas.drawArc(new RectF(cx-r*0.25f, mouthY,
+                                     cx+r*0.25f, mouthY+r*0.15f), 0, -180, false, p);
         } else {
-            canvas.drawArc(new RectF(cx-r*0.28f, cy+r*0.15f,
-                                     cx+r*0.28f, cy+r*0.42f), 0, 180, false, p);
+            canvas.drawLine(cx-r*0.22f, mouthY, cx+r*0.22f, mouthY, p);
         }
-        p.setStyle(Paint.Style.FILL); p.setAlpha(255);
+        p.setStyle(Paint.Style.FILL);
+        p.setAlpha(255);
     }
 
-    private void drawRectFace(Canvas canvas, float cx, float topY, float charW,
-                               float eyebrow, boolean angry) {
-        float ew = charW * 0.13f, eh = charW * 0.08f;
-        float eyeSpacing = charW * 0.20f;
-        float eyeY = topY;
+    // ═══════════════════════════════════════════
+    //  YARDIMCILAR
+    // ═══════════════════════════════════════════
 
-        p.setColor(angry ? 0xFFFFFFFF : 0xFFDDDDDD);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(charW * 0.045f);
-        p.setStrokeCap(Paint.Cap.ROUND);
-        float browLift = eyebrow * charW * 0.06f;
-        if (angry) {
-            canvas.drawLine(cx - eyeSpacing - ew, eyeY - browLift - charW*0.05f,
-                            cx - eyeSpacing + ew, eyeY - browLift,              p);
-            canvas.drawLine(cx + eyeSpacing - ew, eyeY - browLift,
-                            cx + eyeSpacing + ew, eyeY - browLift - charW*0.05f, p);
-        } else {
-            canvas.drawLine(cx - eyeSpacing - ew, eyeY - browLift,
-                            cx - eyeSpacing + ew, eyeY - browLift, p);
-            canvas.drawLine(cx + eyeSpacing - ew, eyeY - browLift,
-                            cx + eyeSpacing + ew, eyeY - browLift, p);
-        }
-        p.setStyle(Paint.Style.FILL);
-
-        p.setColor(Color.WHITE);
-        canvas.drawOval(cx-eyeSpacing-ew, eyeY, cx-eyeSpacing+ew, eyeY+eh*2, p);
-        canvas.drawOval(cx+eyeSpacing-ew, eyeY, cx+eyeSpacing+ew, eyeY+eh*2, p);
-
-        float pr = ew * 0.52f;
-        float ox = Math.max(-ew*0.38f, Math.min(ew*0.38f, curGX));
-        float oy = Math.max(-eh*0.3f,  Math.min(eh*0.3f,  curGY));
-        p.setColor(0xFF111111);
-        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + eh + oy, pr, p);
-        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + eh + oy, pr, p);
-
-        p.setColor(Color.WHITE);
-        canvas.drawCircle(cx-eyeSpacing+ox+pr*0.3f, eyeY+eh+oy-pr*0.3f, pr*0.28f, p);
-        canvas.drawCircle(cx+eyeSpacing+ox+pr*0.3f, eyeY+eh+oy-pr*0.3f, pr*0.28f, p);
-
-        p.setColor(0xFFDDDDDD);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(charW * 0.04f);
-        float mouthY = eyeY + eh * 3.2f;
-        if (eyebrow > 0.5f && angry) {
-            canvas.drawLine(cx - ew*0.8f, mouthY, cx + ew*0.8f, mouthY, p);
-        } else {
-            canvas.drawArc(new RectF(cx - ew*1.0f, mouthY - ew*0.3f,
-                                     cx + ew*1.0f, mouthY + ew*0.5f), 0, 180, false, p);
-        }
-        p.setStyle(Paint.Style.FILL);
-    }
-
-    private void drawTallFace(Canvas canvas, float cx, float topY, float charW,
-                               float eyebrow, float peekProg,
-                               float gazeX, float gazeY) {
-        float ew = charW * 0.35f, eh = charW * 0.22f;
-        float eyeSpacing = charW * 0.42f;
-        float eyeY = topY;
-
-        p.setColor(Color.WHITE);
-        canvas.drawOval(cx-eyeSpacing-ew, eyeY, cx-eyeSpacing+ew, eyeY+eh*2, p);
-        canvas.drawOval(cx+eyeSpacing-ew, eyeY, cx+eyeSpacing+ew, eyeY+eh*2, p);
-
-        float pr = ew * 0.5f;
-        float peekOX = peekProg * ew * 0.55f;
-        float ox = Math.max(-ew*0.4f, Math.min(ew*0.4f, gazeX + peekOX));
-        float oy = Math.max(-eh*0.3f,  Math.min(eh*0.3f,  gazeY));
-
-        p.setColor(0xFF111111);
-        canvas.drawCircle(cx - eyeSpacing + ox, eyeY + eh + oy, pr, p);
-        canvas.drawCircle(cx + eyeSpacing + ox, eyeY + eh + oy, pr, p);
-
-        p.setColor(Color.WHITE);
-        canvas.drawCircle(cx-eyeSpacing+ox+pr*0.3f, eyeY+eh+oy-pr*0.3f, pr*0.28f, p);
-        canvas.drawCircle(cx+eyeSpacing+ox+pr*0.3f, eyeY+eh+oy-pr*0.3f, pr*0.28f, p);
-
-        p.setColor(0xFFAAAAAA);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(charW * 0.06f);
-        p.setStrokeCap(Paint.Cap.ROUND);
-        float browLift = eyebrow * charW * 0.08f;
-        if (peekProg > 0.3f) {
-            canvas.drawArc(new RectF(cx-eyeSpacing-ew, eyeY-browLift-charW*0.15f,
-                                     cx-eyeSpacing+ew, eyeY-browLift),
-                    180, 180, false, p);
-            canvas.drawArc(new RectF(cx+eyeSpacing-ew, eyeY-browLift*1.6f-charW*0.15f,
-                                     cx+eyeSpacing+ew, eyeY-browLift*1.6f),
-                    180, 180, false, p);
-        } else {
-            canvas.drawLine(cx-eyeSpacing-ew*0.7f, eyeY-browLift-charW*0.1f,
-                            cx-eyeSpacing+ew*0.7f, eyeY-browLift-charW*0.1f, p);
-            canvas.drawLine(cx+eyeSpacing-ew*0.7f, eyeY-browLift-charW*0.1f,
-                            cx+eyeSpacing+ew*0.7f, eyeY-browLift-charW*0.1f, p);
-        }
-        p.setStyle(Paint.Style.FILL);
+    private void drawSleepZ(Canvas canvas, float x, float y, float alpha) {
+        tp.setAlpha((int)(255 * alpha));
+        tp.setTextSize(28f * alpha);
+        tp.setColor(0xFFAAAAAA);
+        canvas.drawText("z", x, y, tp);
+        tp.setTextSize(20f * alpha);
+        canvas.drawText("z", x + 18f, y - 20f, tp);
+        tp.setAlpha(255);
     }
 
     private void drawGroundShadows(Canvas canvas, float w, float baseY) {
-        sp.setMaskFilter(new BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL));
-        sp.setColor(0x28000000);
-        float[] xs = {w*0.20f, w*0.35f, w*0.50f, w*0.70f};
-        float[] rs = {w*0.18f, w*0.12f, w*0.08f, w*0.11f};
-        for (int i = 0; i < 4; i++) {
-            canvas.drawOval(xs[i]-rs[i], baseY-rs[i]*0.3f,
-                            xs[i]+rs[i], baseY+rs[i]*0.3f, sp);
-        }
+        sp.setMaskFilter(new BlurMaskFilter(22f, BlurMaskFilter.Blur.NORMAL));
+        sp.setColor(0x25000000);
+        float[] xs = {w*0.16f, w*0.26f, w*0.50f, w*0.76f};
+        float[] rs = {w*0.19f, w*0.13f, w*0.09f, w*0.12f};
+        for (int i = 0; i < 4; i++)
+            canvas.drawOval(xs[i]-rs[i], baseY-rs[i]*0.25f,
+                            xs[i]+rs[i], baseY+rs[i]*0.25f, sp);
         sp.setMaskFilter(null);
     }
 
-    private int lerpColor(int a, int b, float t) {
-        int ar = (a>>16)&0xFF, ag = (a>>8)&0xFF, ab = a&0xFF;
-        int br = (b>>16)&0xFF, bg = (b>>8)&0xFF, bb = b&0xFF;
-        return Color.rgb(
-            (int)(ar + (br-ar)*t),
-            (int)(ag + (bg-ag)*t),
-            (int)(ab + (bb-ab)*t));
+    private float[] getCharCenter(int idx) {
+        float w = getWidth(), h = getHeight();
+        float baseY = h * 0.90f;
+        switch (idx) {
+            case VIGO: return new float[]{w*0.26f, baseY - h*0.20f};
+            case NOX:  return new float[]{w*0.50f, baseY - h*0.17f};
+            case PUF:  return new float[]{w*0.16f, baseY - w*0.22f};
+            case ZIP:  return new float[]{w*0.76f, baseY - h*0.15f};
+        }
+        return new float[]{w/2f, h/2f};
     }
 
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        removeCallbacks(gazeRunner);
-        if (idleAnim    != null) idleAnim.cancel();
-        if (stateAnimSet!= null) stateAnimSet.cancel();
+    private float[] getCharRadii() {
+        float w = getWidth();
+        return new float[]{w*0.13f, w*0.09f, w*0.22f, w*0.11f};
+    }
+
+    private void setEmotion(int char_, float brow, float mouth, float eyes, int ms) {
+        anim(eyebrow[char_],    brow,  ms, new DecelerateInterpolator(), v -> eyebrow[char_]    = v);
+        anim(mouthCurve[char_], mouth, ms, new DecelerateInterpolator(), v -> mouthCurve[char_] = v);
+        anim(eyeOpen[char_],    eyes,  ms, new DecelerateInterpolator(), v -> eyeOpen[char_]    = v);
+    }
+
+    interface Setter { void set(float v); }
+
+    private void anim(float from, float to, int ms, TimeInterpolator interp, Setter s) {
+        ValueAnimator va = ValueAnimator.ofFloat(from, to);
+        va.setDuration(ms);
+        va.setInterpolator(interp);
+        va.addUpdateListener(a -> { s.set((float)a.getAnimatedValue()); });
+        va.start();
+    }
+
+    private int lerpColor(int a, int b, float t) {
+        int ar=(a>>16)&0xFF, ag=(a>>8)&0xFF, ab=a&0xFF;
+        int br=(b>>16)&0xFF, bg=(b>>8)&0xFF, bb=b&0xFF;
+        return Color.rgb((int)(ar+(br-ar)*t),(int)(ag+(bg-ag)*t),(int)(ab+(bb-ab)*t));
+    }
+
+    private void notifyActivity() {
+        lastActivityMs = System.currentTimeMillis();
+        idleMs = 0;
     }
 }
+                    
