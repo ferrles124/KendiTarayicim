@@ -15,7 +15,7 @@ public class LoginActivity extends AppCompatActivity {
     private CharacterView characterView;
     private EditText      inputEmail, inputPassword;
     private ImageButton   btnTogglePassword;
-    private View          btnLogin, btnRegister;
+    private TextView          btnLogin, btnRegister;
     private TextView      loginError;
 
     private SupabaseAuth auth;
